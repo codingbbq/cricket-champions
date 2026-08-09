@@ -1,137 +1,97 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { useNavigate } from "react-router-dom";
-
-import { db } from "@/lib/firebase";
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const formSchema = z.object({
-  venue: z.string().min(3, { message: "Venue must be at least 3 characters." }),
-  date: z.date({
-    required_error: "A date for the match is required.",
-  }),
-  overs: z.coerce.number().min(1, { message: "Overs must be at least 1." }).max(50, { message: "Overs cannot exceed 50." }),
-  lastManBatting: z.boolean().default(false),
-});
-
-type MatchFormValues = z.infer<typeof formSchema>;
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const CreateMatchPage = () => {
   const navigate = useNavigate();
-  const form = useForm<MatchFormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      venue: "",
-      overs: 10,
-      lastManBatting: false,
-    },
-  });
+  const [venue, setVenue] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [overs, setOvers] = useState(20);
+  const [lastManBatting, setLastManBatting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { formState: { isSubmitting } } = form;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
 
-  async function onSubmit(values: MatchFormValues) {
     try {
-      const docRef = await addDoc(collection(db, "matches"), {
-        ...values,
+      const newMatchRef = await addDoc(collection(db, 'matches'), {
+        venue,
+        date: new Date(date),
+        overs,
+        lastManBatting,
         status: 'pending',
         createdAt: serverTimestamp(),
       });
-      navigate(`/admin/matches/${docRef.id}/teams`);
-    } catch (error) {
-      console.error("Error creating match: ", error);
+      navigate(`/admin/matches/${newMatchRef.id}/teams`);
+    } catch (err) {
+      console.error('Error creating match:', err);
+      setError('Failed to create match. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
-    <div className="container mx-auto py-10 flex justify-center">
-      <Card className="w-full max-w-2xl">
-        <CardHeader>
-          <CardTitle>Create New Match</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <FormField
-                control={form.control}
-                name="venue"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Venue</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. National Stadium" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Match Date</FormLabel>
-                    <FormControl>
-                      <DatePicker value={field.value} onChange={field.onChange} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="overs"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Number of Overs</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lastManBatting"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Last Man Batting</FormLabel>
-                      <FormDescription>
-                        Allow the last remaining batsman to bat alone.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating Match...' : 'Create Match & Select Teams'}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+    <div className="container mx-auto py-10">
+      <div className="max-w-2xl mx-auto p-8 bg-white rounded-lg shadow-md">
+        <h1 className="text-2xl font-bold mb-6">Create New Match</h1>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="venue" className="block mb-2 text-sm font-medium text-gray-700">Match Venue</label>
+            <input
+              id="venue"
+              type="text"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="e.g., National Stadium"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="date" className="block mb-2 text-sm font-medium text-gray-700">Match Date</label>
+            <input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="overs" className="block mb-2 text-sm font-medium text-gray-700">Number of Overs</label>
+            <input
+              id="overs"
+              type="number"
+              value={overs}
+              onChange={(e) => setOvers(Number(e.target.value))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              min="1"
+              max="50"
+              required
+            />
+          </div>
+          <div className="flex items-center">
+            <input
+              id="lastManBatting"
+              type="checkbox"
+              checked={lastManBatting}
+              onChange={(e) => setLastManBatting(e.target.checked)}
+              className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+            />
+            <label htmlFor="lastManBatting" className="ml-2 block text-sm text-gray-900">Last Man Batting</label>
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button type="submit" disabled={isSubmitting} className="w-full px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50">
+            {isSubmitting ? 'Creating...' : 'Create Match & Select Teams'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

@@ -1,94 +1,93 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Player } from '@/types';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { PlayerForm } from '@/components/admin/PlayerForm';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const PlayersPage = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'players'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const playersData: Player[] = [];
-      querySnapshot.forEach((doc) => {
-        playersData.push({ id: doc.id, ...doc.data() } as Player);
-      });
-      setPlayers(playersData);
+    const fetchPlayers = async () => {
+      setLoading(true);
+      const playersCollection = collection(db, 'players');
+      const playersSnapshot = await getDocs(playersCollection);
+      const playersList = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
+      setPlayers(playersList);
       setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    fetchPlayers();
   }, []);
 
-  const handleFormSubmit = () => {
-    setIsDialogOpen(false);
-    setSelectedPlayer(null);
+  const handleAddPlayer = async () => {
+    if (newPlayerName.trim() === '') return;
+    const newPlayer = { name: newPlayerName };
+    const docRef = await addDoc(collection(db, 'players'), newPlayer);
+    setPlayers([...players, { id: docRef.id, ...newPlayer }]);
+    setNewPlayerName('');
   };
 
-  const handleEdit = (player: Player) => {
-    setSelectedPlayer(player);
-    setIsDialogOpen(true);
+  const handleUpdatePlayer = async () => {
+    if (!editingPlayer || editingPlayer.name.trim() === '') return;
+    const playerRef = doc(db, 'players', editingPlayer.id);
+    await updateDoc(playerRef, { name: editingPlayer.name });
+    setPlayers(players.map(p => p.id === editingPlayer.id ? editingPlayer : p));
+    setEditingPlayer(null);
+    setIsModalOpen(false);
   };
 
-  const handleAddNew = () => {
-    setSelectedPlayer(null);
-    setIsDialogOpen(true);
+  const handleDeletePlayer = async (id: string) => {
+    await deleteDoc(doc(db, 'players', id));
+    setPlayers(players.filter(p => p.id !== id));
   };
+
+  if (loading) {
+    return <div className="container mx-auto py-10">Loading players...</div>;
+  }
 
   return (
     <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Player Management</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleAddNew}>Add Player</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>{selectedPlayer ? 'Edit Player' : 'Add New Player'}</DialogTitle>
-            </DialogHeader>
-            <PlayerForm player={selectedPlayer} onFormSubmit={handleFormSubmit} />
-          </DialogContent>
-        </Dialog>
+      <h1 className="text-3xl font-bold mb-6">Manage Players</h1>
+      <div className="flex gap-2 mb-6">
+        <input
+          type="text"
+          value={newPlayerName}
+          onChange={(e) => setNewPlayerName(e.target.value)}
+          placeholder="New player name"
+          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md"
+        />
+        <button onClick={handleAddPlayer} className="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Add Player</button>
+      </div>
+      <div className="space-y-2">
+        {players.map(player => (
+          <div key={player.id} className="flex items-center justify-between p-4 bg-white rounded-lg shadow-md">
+            <span>{player.name}</span>
+            <div className="flex gap-2">
+              <button onClick={() => { setEditingPlayer({ ...player }); setIsModalOpen(true); }} className="px-3 py-1 text-sm text-white bg-blue-500 rounded-md hover:bg-blue-600">Edit</button>
+              <button onClick={() => handleDeletePlayer(player.id)} className="px-3 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600">Delete</button>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {loading ? (
-        <p>Loading players...</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {players.map((player) => (
-            <Card key={player.id} className="overflow-hidden">
-              <CardHeader className="flex flex-row items-center gap-4 p-4">
-                <Avatar>
-                  <AvatarImage src={player.photoUrl} alt={player.name} />
-                  <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <CardTitle>{player.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground capitalize">{player.role}</p>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <Button variant="outline" className="w-full" onClick={() => handleEdit(player)}>
-                  Edit
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+      {isModalOpen && editingPlayer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-xl">
+            <h2 className="text-xl font-bold mb-4">Edit Player</h2>
+            <input
+              value={editingPlayer.name}
+              onChange={(e) => setEditingPlayer(p => p ? { ...p, name: e.target.value } : null)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancel</button>
+              <button onClick={handleUpdatePlayer} className="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Save</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
