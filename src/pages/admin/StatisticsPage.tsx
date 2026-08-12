@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ArrowUpDown } from 'lucide-react';
+import Navigation from '@/components/common/Navigation';
+import { Card, CardContent } from '@/components/ui/Card';
 import type { Player, Innings } from '@/types';
 
 interface PlayerStats {
@@ -106,51 +108,71 @@ const StatisticsPage = () => {
   };
 
   if (loading) {
-    return <div className="container mx-auto py-10">Loading statistics...</div>;
+    return (
+      <>
+        <Navigation />
+        <div className="container-responsive py-10">
+          <div className="text-center">
+            <div className="animate-spin text-4xl mb-4">⏳</div>
+            <p className="text-gray-600">Loading statistics...</p>
+          </div>
+        </div>
+      </>
+    );
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">Player Statistics</h1>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button onClick={() => requestSort('name')} className="flex items-center">Player <ArrowUpDown className="ml-2 h-4 w-4" /></button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button onClick={() => requestSort('matchesPlayed')} className="flex items-center">Matches <ArrowUpDown className="ml-2 h-4 w-4" /></button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button onClick={() => requestSort('runs')} className="flex items-center">Runs <ArrowUpDown className="ml-2 h-4 w-4" /></button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button onClick={() => requestSort('wickets')} className="flex items-center">Wickets <ArrowUpDown className="ml-2 h-4 w-4" /></button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button onClick={() => requestSort('avg')} className="flex items-center">Avg <ArrowUpDown className="ml-2 h-4 w-4" /></button>
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <button onClick={() => requestSort('sr')} className="flex items-center">SR <ArrowUpDown className="ml-2 h-4 w-4" /></button>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {sortedPlayerStats.map(player => (
-              <tr key={player.id}>
-                <td className="px-6 py-4 whitespace-nowrap">{player.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{player.matchesPlayed}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{player.runs}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{player.wickets}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{(player.runs / (player.timesOut || 1)).toFixed(2)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{((player.runs / (player.ballsFaced || 1)) * 100).toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <>
+      <Navigation />
+      <div className="container-responsive py-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Player Statistics</h1>
+          <p className="text-gray-600">View player performance metrics and rankings</p>
+        </div>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full bg-white divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => requestSort('name')} className="flex items-center">Player <ArrowUpDown className="ml-2 h-4 w-4" /></button>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => requestSort('matchesPlayed')} className="flex items-center">Matches <ArrowUpDown className="ml-2 h-4 w-4" /></button>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => requestSort('runs')} className="flex items-center">Runs <ArrowUpDown className="ml-2 h-4 w-4" /></button>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => requestSort('wickets')} className="flex items-center">Wickets <ArrowUpDown className="ml-2 h-4 w-4" /></button>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => requestSort('avg')} className="flex items-center">Avg <ArrowUpDown className="ml-2 h-4 w-4" /></button>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => requestSort('sr')} className="flex items-center">SR <ArrowUpDown className="ml-2 h-4 w-4" /></button>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sortedPlayerStats.map(player => (
+                    <tr key={player.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">{player.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{player.matchesPlayed}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{player.runs}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{player.wickets}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{(player.runs / (player.timesOut || 1)).toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{((player.runs / (player.ballsFaced || 1)) * 100).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </>
   );
 };
 

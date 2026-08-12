@@ -10,11 +10,14 @@ import TossPage from './pages/admin/TossPage';
 import ScoringPage from './pages/ScoringPage';
 import StatisticsPage from './pages/admin/StatisticsPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import { ToastProvider, ToastContainer } from './contexts/ToastContext';
 
 function App() {
   return (
-    <main className="min-h-screen bg-background font-sans antialiased">
-      <Routes>
+    <ToastProvider>
+      <main className="min-h-screen bg-gray-50 font-sans antialiased">
+        <ToastContainer />
+        <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
                 <Route
@@ -33,8 +36,9 @@ function App() {
         <Route path="/scoring/:matchId" element={<ProtectedRoute><ScoringPage /></ProtectedRoute>} />
         <Route path="/admin/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
         {/* More routes will be added here */}
-      </Routes>
-    </main>
+        </Routes>
+      </main>
+    </ToastProvider>
   )
 }
 
