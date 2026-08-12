@@ -135,3 +135,72 @@ pnpm run dev
 - Check your internet connection
 - Verify Firebase project is active
 - Check Firestore security rules allow `read` permission
+
+## Setting Up Match Subcollections (Teams & Innings)
+
+The scoring page requires subcollections under each match document. These are created automatically by the app when you set up a match, but here's how to manually create them if needed:
+
+### Teams Subcollection
+When you create a match and select teams, the app automatically creates a `teams` subcollection under `matches/{matchId}/teams`.
+
+Each team document should have:
+```
+id: (string) team ID
+name: (string) "Team A"
+players: (array) ["playerId1", "playerId2", ...]
+```
+
+### Innings Subcollection
+When you start scoring, the app automatically creates an `innings` subcollection under `matches/{matchId}/innings`.
+
+Each innings document should have:
+```
+id: (string) team ID (same as batting team)
+teamId: (string) team ID
+score: (number) 0
+wickets: (number) 0
+overs: (number) 0
+balls: (array) []
+```
+
+### Updated Security Rules (with Subcollections)
+Update your Firestore security rules to allow access to subcollections:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to read and write all data
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+This rule allows authenticated users to access all collections and subcollections.
+
+## Complete Match Setup Flow
+
+To successfully use the scoring page:
+
+1. **Create a Match** (`/admin/matches/new`)
+   - Enter venue, overs, date
+   - Match is created with `status: "pending"`
+
+2. **Select Teams** (`/admin/matches/{matchId}/teams`)
+   - Select two teams
+   - Assign players to each team
+   - Creates `matches/{matchId}/teams` subcollection
+
+3. **Complete Toss** (`/admin/matches/{matchId}/toss`)
+   - Select toss winner
+   - Select batting/bowling choice
+   - Updates match with `toss` data
+
+4. **Start Scoring** (`/scoring/{matchId}`)
+   - App loads match, teams, and players
+   - Creates `matches/{matchId}/innings` subcollection
+   - Ready to record balls and score
+
+If you see "Teams not found" or "Match toss data not found" errors, go back and complete the previous steps in order.

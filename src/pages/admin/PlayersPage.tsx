@@ -139,14 +139,17 @@ const PlayersPage = () => {
 
   if (loading) {
     return (
-      <div className="container-responsive py-12">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin text-4xl mb-4">⏳</div>
-            <p className="text-gray-600">Loading players...</p>
+      <>
+        <Navigation />
+        <div className="container-responsive py-12">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin text-4xl mb-4">⏳</div>
+              <p className="text-gray-600">Loading players...</p>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
