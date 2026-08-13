@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#161826">
+  <link rel="stylesheet" href="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/styles.css">
+  <script src="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/_ds_bundle.js"></script>
+  <style>
+    @keyframes ccFadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes ccGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    html, body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</helmet>
+
+<div style="min-height: 100dvh; background: var(--color-bg); color: var(--color-text); display: flex; justify-content: center;">
+  <div style="width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column;">
+
+    <div style="position: sticky; top: 0; z-index: 20; padding: calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-4) var(--space-3); background: color-mix(in srgb, var(--color-bg) 90%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--color-divider);">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <a href="Home Feed.dc.html" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--color-text);">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"></path></svg>
+        </a>
+        <div style="font-family: var(--font-heading); font-size: 16px;">Player Profile</div>
+      </div>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-5); padding-bottom: var(--space-8); animation: ccFadeUp 0.4s ease both;">
+
+      <div style="display: flex; align-items: center; gap: var(--space-4);">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--color-accent-800); display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-size: 22px; color: var(--color-accent-100); flex: none;">{{ initials }}</div>
+        <div>
+          <div style="font-family: var(--font-heading); font-size: 20px;">{{ name }}</div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+            <span class="tag tag-accent">{{ role }}</span>
+            <span style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ matches }} matches</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-bottom: var(--space-2);">Batting</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2);">
+          <sc-for list="{{ battingStats }}" as="st" hint-placeholder-count="4">
+            <div class="card elev-sm" style="gap: 2px;">
+              <div style="font-family: var(--font-heading); font-size: 24px;">{{ st.value }}</div>
+              <div style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ st.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-bottom: var(--space-2);">Fielding &amp; bowling</div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2);">
+          <sc-for list="{{ otherStats }}" as="st" hint-placeholder-count="4">
+            <div class="card elev-sm" style="gap: 2px;">
+              <div style="font-family: var(--font-heading); font-size: 24px;">{{ st.value }}</div>
+              <div style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ st.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-bottom: var(--space-2);">Runs, last 5 matches</div>
+        <div style="display: flex; align-items: flex-end; gap: var(--space-2); height: 90px; padding: 0 var(--space-1);">
+          <sc-for list="{{ form }}" as="f" hint-placeholder-count="5">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end;">
+              <div style="font-size: 10.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ f.runs }}</div>
+              <div style="width: 100%; max-width: 26px; height: {{ f.height }}; background: var(--color-accent-600); border-radius: 4px 4px 0 0; transform-origin: bottom; animation: ccGrow 0.5s ease both;"></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-bottom: var(--space-2);">Recent matches</div>
+        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+          <sc-for list="{{ recent }}" as="r" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-3); background: var(--color-surface); border-radius: var(--radius-md);">
+              <div>
+                <div style="font-size: 13px; font-weight: 500;">vs {{ r.opponent }}</div>
+                <div style="font-size: 11px; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-top: 1px;">{{ r.date }}</div>
+              </div>
+              <div style="font-size: 13px; font-family: var(--font-heading); color: var(--color-accent-300);">{{ r.line }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const PLAYER = {
+  name: 'Idrish Laxmidhar', role: 'Bowler', matches: 14,
+  runs: 312, average: '26.0', highScore: 44, fours: 28, sixes: 6,
+  wickets: 21, economy: '7.10', bestFigures: '4/18',
+  catches: 9, runOuts: 3, stumpings: 0,
+  formRuns: [12, 34, 8, 44, 21],
+  recent: [
+    { opponent: 'Weekend Warriors', date: 'Aug 8, 2026', line: '34(28)' },
+    { opponent: 'Turf Titans', date: 'Aug 1, 2026', line: '3/18' },
+    { opponent: 'Boundary Boys', date: 'Jul 25, 2026', line: '2/22 & 8' },
+    { opponent: 'Weekend Warriors', date: 'Jul 18, 2026', line: '21(15)' },
+  ],
+};
+
+class Component extends DCLogic {
+  renderVals() {
+    const p = PLAYER;
+    const initials = p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const maxRun = Math.max(...p.formRuns, 1);
+    return {
+      name: p.name, role: p.role, matches: p.matches, initials,
+      battingStats: [
+        { label: 'Runs', value: p.runs },
+        { label: 'Average', value: p.average },
+        { label: 'Fours', value: p.fours },
+        { label: 'Sixes', value: p.sixes },
+      ],
+      otherStats: [
+        { label: 'Wickets', value: p.wickets },
+        { label: 'Economy', value: p.economy },
+        { label: 'Catches', value: p.catches },
+        { label: 'Run-outs / Stumpings', value: `${p.runOuts} / ${p.stumpings}` },
+      ],
+      form: p.formRuns.map(r => ({ runs: r, height: `${Math.max(10, (r / maxRun) * 100)}%` })),
+      recent: p.recent,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#161826">
+  <link rel="stylesheet" href="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/styles.css">
+  <script src="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/_ds_bundle.js"></script>
+  <style>
+    @keyframes ccFadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    html, body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</helmet>
+
+<div style="min-height: 100dvh; background: var(--color-bg); color: var(--color-text); display: flex; justify-content: center;">
+  <div style="width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column;">
+
+    <div style="position: sticky; top: 0; z-index: 20; padding: calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-4) var(--space-3); background: color-mix(in srgb, var(--color-bg) 90%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--color-divider);">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <a href="Home Feed.dc.html" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--color-text);">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"></path></svg>
+        </a>
+        <div style="font-family: var(--font-heading); font-size: 16px;">Match Summary</div>
+      </div>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); padding-bottom: var(--space-8); animation: ccFadeUp 0.4s ease both;">
+
+      <div style="position: relative; width: 100%; aspect-ratio: 16/9; border-radius: var(--radius-md); overflow: hidden; background: var(--color-neutral-900);">
+        <sc-if value="{{ isPlaying }}" hint-placeholder-val="{{ false }}">
+          <iframe src="{{ embedUrl }}" style="width: 100%; height: 100%; border: 0;" allow="autoplay; encrypted-media" allowfullscreen=""></iframe>
+        </sc-if>
+        <sc-if value="{{ isNotPlaying }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ togglePlay }}" style="position: absolute; inset: 0; cursor: pointer;">
+            <img src="{{ thumbUrl }}" alt="Match video" style="width: 100%; height: 100%; object-fit: cover;">
+            <div style="position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.55) 100%);"></div>
+            <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;">
+              <div style="width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--color-bg) 55%, transparent); backdrop-filter: blur(4px); border: 1.5px solid rgba(255,255,255,0.5); display: flex; align-items: center; justify-content: center;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"></path></svg>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div>
+        <div style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">Riverside Turf, Sec 21 · Aug 8, 2026 · 20 overs</div>
+        <div style="font-family: var(--font-heading); font-size: 19px; margin-top: 2px;">Weekend Warriors won by 6 wickets</div>
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: var(--space-2); font-size: 12.5px; color: var(--color-accent-300);">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 21h8M12 17v4M6 4h12v3a6 6 0 01-12 0V4z"></path><path d="M6 5H3v2a3 3 0 003 3M18 5h3v2a3 3 0 01-3 3"></path></svg>
+          Player of the match: Rohan Mehta — 61(34) &amp; 2 catches
+        </div>
+      </div>
+
+      <div class="seg" style="align-self: flex-start;">
+        <sc-for list="{{ inningsTabs }}" as="t" hint-placeholder-count="2">
+          <label class="seg-opt"><input type="radio" name="inn" checked="{{ t.checked }}" onChange="{{ t.onTap }}"><span class="dot"></span>{{ t.label }}</label>
+        </sc-for>
+      </div>
+
+      <div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: var(--space-2);">
+          <h4 style="margin: 0;">{{ current.battingTeam }} — {{ current.total }}</h4>
+          <span style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ current.oversUsed }} overs</span>
+        </div>
+        <table class="table">
+          <thead><tr><th>Batsman</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ current.batting }}" as="b" hint-placeholder-count="6">
+              <tr><td>{{ b.name }}</td><td>{{ b.runs }}</td><td>{{ b.balls }}</td><td>{{ b.fours }}</td><td>{{ b.sixes }}</td><td>{{ b.sr }}</td></tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <div style="font-size: 11.5px; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-top: var(--space-2);">Extras: {{ current.extras }} · Fall of wickets: {{ current.fow }}</div>
+      </div>
+
+      <div>
+        <h4 style="margin: 0 0 var(--space-2);">{{ current.bowlingTeam }} bowling</h4>
+        <table class="table">
+          <thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ current.bowling }}" as="bw" hint-placeholder-count="4">
+              <tr><td>{{ bw.name }}</td><td>{{ bw.overs }}</td><td>{{ bw.maidens }}</td><td>{{ bw.runs }}</td><td>{{ bw.wkts }}</td><td>{{ bw.econ }}</td></tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const INNINGS = {
+  A: {
+    battingTeam: 'Turf Titans', bowlingTeam: 'Weekend Warriors', total: '156/7', oversUsed: '20.0',
+    extras: '18 (b4, lb3, w9, nb2)', fow: '1-18, 2-45, 3-78, 4-95, 5-121, 6-140, 7-156',
+    batting: [
+      { name: 'Idrish Laxmidhar', runs: 34, balls: 28, fours: 3, sixes: 0, sr: '121.4' },
+      { name: 'John Doe', runs: 28, balls: 22, fours: 2, sixes: 1, sr: '127.3' },
+      { name: 'Karan Mehta', runs: 19, balls: 15, fours: 1, sixes: 0, sr: '126.7' },
+      { name: 'Dev Patel', runs: 22, balls: 18, fours: 2, sixes: 0, sr: '122.2' },
+      { name: 'Arjun Nair', runs: 15, balls: 12, fours: 1, sixes: 0, sr: '125.0' },
+      { name: 'Aman Kapoor', runs: 8, balls: 9, fours: 0, sixes: 0, sr: '88.9' },
+      { name: 'Rahul Singh*', runs: 12, balls: 8, fours: 1, sixes: 0, sr: '150.0' },
+    ],
+    bowling: [
+      { name: 'Sameer Joshi', overs: '4.0', maidens: 0, runs: 29, wkts: 3, econ: '7.25' },
+      { name: 'Vivek Rana', overs: '4.0', maidens: 0, runs: 25, wkts: 2, econ: '6.25' },
+      { name: 'Kunal Verma', overs: '4.0', maidens: 0, runs: 30, wkts: 1, econ: '7.50' },
+      { name: 'Priya Shah', overs: '4.0', maidens: 0, runs: 35, wkts: 1, econ: '8.75' },
+      { name: 'Rohan Mehta', overs: '4.0', maidens: 0, runs: 19, wkts: 0, econ: '4.75' },
+    ],
+  },
+  B: {
+    battingTeam: 'Weekend Warriors', bowlingTeam: 'Turf Titans', total: '158/4', oversUsed: '18.2',
+    extras: '14 (b2, lb2, w8, nb2)', fow: '1-70, 2-118, 3-135, 4-142',
+    batting: [
+      { name: 'Rohan Mehta', runs: 61, balls: 34, fours: 6, sixes: 2, sr: '179.4' },
+      { name: 'Priya Shah', runs: 34, balls: 22, fours: 3, sixes: 1, sr: '154.5' },
+      { name: 'Kunal Verma', runs: 12, balls: 9, fours: 1, sixes: 0, sr: '133.3' },
+      { name: 'Vivek Rana*', runs: 28, balls: 19, fours: 2, sixes: 1, sr: '147.4' },
+      { name: 'Sameer Joshi*', runs: 9, balls: 6, fours: 1, sixes: 0, sr: '150.0' },
+    ],
+    bowling: [
+      { name: 'Idrish Laxmidhar', overs: '4.0', maidens: 0, runs: 28, wkts: 2, econ: '7.00' },
+      { name: 'Aman Kapoor', overs: '3.2', maidens: 0, runs: 30, wkts: 1, econ: '9.00' },
+      { name: 'John Doe', overs: '4.0', maidens: 0, runs: 40, wkts: 1, econ: '10.00' },
+      { name: 'Karan Mehta', overs: '4.0', maidens: 0, runs: 35, wkts: 0, econ: '8.75' },
+      { name: 'Dev Patel', overs: '3.0', maidens: 0, runs: 11, wkts: 0, econ: '3.67' },
+    ],
+  },
+};
+
+class Component extends DCLogic {
+  state = { innings: 'A', playing: false };
+  renderVals() {
+    const s = this.state;
+    return {
+      thumbUrl: 'https://img.youtube.com/vi/aqz-KE-bpKQ/hqdefault.jpg',
+      embedUrl: 'https://www.youtube.com/embed/aqz-KE-bpKQ?autoplay=1',
+      isPlaying: s.playing, isNotPlaying: !s.playing,
+      togglePlay: () => this.setState(x => ({ playing: !x.playing })),
+      inningsTabs: [
+        { label: 'Turf Titans inns', checked: s.innings === 'A', onTap: () => this.setState({ innings: 'A' }) },
+        { label: 'Weekend Warriors inns', checked: s.innings === 'B', onTap: () => this.setState({ innings: 'B' }) },
+      ],
+      current: INNINGS[s.innings],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

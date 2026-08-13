@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
-import Navigation from '@/components/common/Navigation';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import Modal from '@/components/ui/Modal';
 import type { Player } from '@/types';
 
 const PlayersPage = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +17,7 @@ const PlayersPage = () => {
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
   const [isUpdatingPlayer, setIsUpdatingPlayer] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -137,190 +135,253 @@ const PlayersPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <>
-        <Navigation />
-        <div className="container-responsive py-12">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin text-4xl mb-4">⏳</div>
-              <p className="text-gray-600">Loading players...</p>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  const getRoleColor = (role: string) => {
+    const colors: Record<string, string> = {
+      batsman: 'bg-blue-500/20 text-blue-400',
+      bowler: 'bg-red-500/20 text-red-400',
+      'all-rounder': 'bg-purple-500/20 text-purple-400',
+      'wicket-keeper': 'bg-green-500/20 text-green-400',
+    };
+    return colors[role] || 'bg-gray-500/20 text-gray-400';
+  };
+
+  const getPlayerInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(w => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
 
   return (
-    <>
-      <Navigation />
-      <div className="container-responsive py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Manage Players</h1>
-          <p className="text-gray-600">Add, edit, and manage your cricket team players</p>
+    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
+      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950">
+        {/* Header */}
+        <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
+          <div className="flex items-center gap-3">
+            <a href="/" className="w-7 h-7 flex items-center justify-center text-white">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
+            </a>
+            <div className="text-base font-semibold">Players</div>
+          </div>
         </div>
 
-        {/* Add Player Card */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Add New Player</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <Input
-                  label="Player Name"
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-40 space-y-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-neutral-500">Loading players...</div>
+            </div>
+          ) : players.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="text-2xl mb-2">🏏</div>
+              <div className="text-neutral-500 text-center">No players yet. Add your first player below!</div>
+            </div>
+          ) : (
+            players.map((player, index) => (
+              <div
+                key={player.id}
+                className="bg-neutral-900 rounded-lg p-4 animate-in fade-in"
+                style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center font-semibold text-sm border border-neutral-700">
+                    {getPlayerInitials(player.name)}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold text-sm">{player.name}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getRoleColor(player.role)}`}>
+                        {player.role.charAt(0).toUpperCase() + player.role.slice(1)}
+                      </span>
+                      {player.active && (
+                        <span className="text-xs text-green-400">Active</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingPlayer({ ...player });
+                      setIsModalOpen(true);
+                    }}
+                    className="flex-1 px-3 py-2 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 rounded transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeletePlayer(player.id)}
+                    disabled={isDeletingId === player.id}
+                    className="flex-1 px-3 py-2 text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors disabled:opacity-50"
+                  >
+                    {isDeletingId === player.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Add Player Form */}
+        <div className="fixed bottom-16 left-0 right-0 flex max-w-md mx-auto px-4 py-4 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 z-30">
+          {!showAddForm ? (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
+            >
+              + Add Player
+            </button>
+          ) : (
+            <div className="w-full space-y-2">
+              <div className="flex gap-2">
+                <input
                   type="text"
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
-                  placeholder="Enter player name"
+                  placeholder="Player name"
+                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
                   onKeyPress={(e) => e.key === 'Enter' && handleAddPlayer()}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+              <div className="flex gap-2">
                 <select
                   value={newPlayerRole}
                   onChange={(e) => setNewPlayerRole(e.target.value as any)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-white focus:outline-none focus:border-amber-500"
                 >
                   <option value="batsman">Batsman</option>
                   <option value="bowler">Bowler</option>
                   <option value="all-rounder">All-rounder</option>
                   <option value="wicket-keeper">Wicket-keeper</option>
                 </select>
-              </div>
-              <div className="flex items-end">
-                <Button
-                  variant="primary"
-                  size="md"
+                <button
                   onClick={handleAddPlayer}
-                  isLoading={isAddingPlayer}
-                  className="w-full"
+                  disabled={isAddingPlayer}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded transition-colors disabled:opacity-50"
                 >
-                  Add Player
-                </Button>
+                  {isAddingPlayer ? '...' : 'Add'}
+                </button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Players List */}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Players ({players.length})
-          </h2>
-
-          {players.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <p className="text-gray-500 text-lg">No players yet. Add your first player above!</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {players.map(player => (
-                <Card key={player.id} className="animate-fade-in">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{player.name}</h3>
-                        <p className="text-sm text-gray-500 capitalize">{player.role}</p>
-                      </div>
-                      {player.active && (
-                        <span className="inline-block px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                          Active
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          setEditingPlayer({ ...player });
-                          setIsModalOpen(true);
-                        }}
-                        className="flex-1"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleDeletePlayer(player.id)}
-                        isLoading={isDeletingId === player.id}
-                        className="flex-1"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <button
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewPlayerName('');
+                  setNewPlayerRole('batsman');
+                }}
+                className="w-full px-3 py-2 text-xs text-neutral-400 hover:text-neutral-300"
+              >
+                Cancel
+              </button>
             </div>
           )}
         </div>
 
         {/* Edit Modal */}
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setEditingPlayer(null);
-          }}
-          title="Edit Player"
-          size="md"
-          footer={
-            <>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setEditingPlayer(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleUpdatePlayer}
-                isLoading={isUpdatingPlayer}
-              >
-                Save Changes
-              </Button>
-            </>
-          }
-        >
-          {editingPlayer && (
-            <div className="space-y-4">
-              <Input
-                label="Player Name"
+        {isModalOpen && editingPlayer && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-neutral-900 rounded-lg max-w-sm w-full p-6 space-y-4">
+              <div className="text-lg font-semibold">Edit Player</div>
+              <input
                 type="text"
                 value={editingPlayer.name}
                 onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
-                placeholder="Enter player name"
+                placeholder="Player name"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
               />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                <select
-                  value={editingPlayer.role}
-                  onChange={(e) => setEditingPlayer({ ...editingPlayer, role: e.target.value as any })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              <select
+                value={editingPlayer.role}
+                onChange={(e) => setEditingPlayer({ ...editingPlayer, role: e.target.value as any })}
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-white focus:outline-none focus:border-amber-500"
+              >
+                <option value="batsman">Batsman</option>
+                <option value="bowler">Bowler</option>
+                <option value="all-rounder">All-rounder</option>
+                <option value="wicket-keeper">Wicket-keeper</option>
+              </select>
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingPlayer(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded font-semibold transition-colors"
                 >
-                  <option value="batsman">Batsman</option>
-                  <option value="bowler">Bowler</option>
-                  <option value="all-rounder">All-rounder</option>
-                  <option value="wicket-keeper">Wicket-keeper</option>
-                </select>
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdatePlayer}
+                  disabled={isUpdatingPlayer}
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black rounded font-semibold transition-colors disabled:opacity-50"
+                >
+                  {isUpdatingPlayer ? 'Saving...' : 'Save'}
+                </button>
               </div>
             </div>
-          )}
-        </Modal>
+          </div>
+        )}
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 flex max-w-md mx-auto px-2 py-2 bg-neutral-950/90 backdrop-blur-lg border-t border-neutral-800 z-20">
+          {[
+            { key: 'home', label: 'Home', icon: 'home' },
+            { key: 'players', label: 'Players', icon: 'players' },
+            { key: 'matches', label: 'Matches', icon: 'matches' },
+            { key: 'stats', label: 'Stats', icon: 'stats' },
+          ].map(tab => (
+            <div
+              key={tab.key}
+              onClick={() => {
+                if (tab.key === 'home') {
+                  navigate('/');
+                } else if (tab.key === 'matches') {
+                  navigate('/admin/matches');
+                } else if (tab.key === 'stats') {
+                  // Coming soon
+                }
+              }}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 cursor-pointer transition-transform active:scale-94 ${
+                tab.key === 'players'
+                  ? 'text-amber-400'
+                  : 'text-neutral-600'
+              }`}
+            >
+              <div className="w-5 h-5">
+                {tab.icon === 'home' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <path d="M4 11l8-7 8 7"></path>
+                    <path d="M6 10v10h12V10"></path>
+                  </svg>
+                )}
+                {tab.icon === 'players' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <circle cx="9" cy="8" r="3.2"></circle>
+                    <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path>
+                    <circle cx="17.5" cy="9" r="2.6"></circle>
+                    <path d="M15.5 14.2c2.8.4 4.9 2.4 5 5.8"></path>
+                  </svg>
+                )}
+                {tab.icon === 'matches' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <rect x="3" y="4.5" width="18" height="16" rx="2.2"></rect>
+                    <path d="M3 9.5h18M8 3v3M16 3v3"></path>
+                  </svg>
+                )}
+                {tab.icon === 'stats' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <path d="M4 20V10M12 20V4M20 20v-7"></path>
+                  </svg>
+                )}
+              </div>
+              <div className="text-xs font-semibold">{tab.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 

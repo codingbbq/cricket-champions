@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#161826">
+  <link rel="stylesheet" href="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/styles.css">
+  <script src="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/_ds_bundle.js"></script>
+  <style>
+    @keyframes ccFadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes coinFlip { from { transform: rotateY(0deg); } to { transform: rotateY(1800deg); } }
+    @keyframes ccPop { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    html, body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</helmet>
+
+<div style="min-height: 100dvh; background: var(--color-bg); color: var(--color-text); display: flex; justify-content: center;">
+  <div style="width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column; position: relative;">
+
+    <div style="position: sticky; top: 0; z-index: 20; padding: calc(env(safe-area-inset-top, 0px) + var(--space-4)) var(--space-4) var(--space-3); background: color-mix(in srgb, var(--color-bg) 88%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--color-divider);">
+      <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <div onClick="{{ goBack }}" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: {{ backColor }};">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"></path></svg>
+        </div>
+        <div style="font-family: var(--font-heading); font-size: 18px;">{{ stepTitle }}</div>
+      </div>
+      <div style="display: flex; gap: 6px; margin-top: var(--space-3); padding-left: 44px;">
+        <sc-for list="{{ dots }}" as="dot" hint-placeholder-count="4">
+          <div style="{{ dot.style }}"></div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding: var(--space-4); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-6));">
+
+      <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+        <div style="animation: ccFadeUp 0.4s ease both; display: flex; flex-direction: column; gap: var(--space-4);">
+          <div class="field">
+            <label>Match venue</label>
+            <input class="input" type="text" value="{{ venue }}" onChange="{{ onVenueChange }}" placeholder="e.g. Riverside Turf, Sec 21">
+          </div>
+          <div class="field">
+            <label>Match date</label>
+            <input class="input" type="date" value="{{ date }}" onChange="{{ onDateChange }}">
+          </div>
+          <div class="field">
+            <label>Number of overs</label>
+            <input class="input" type="number" value="{{ overs }}" onChange="{{ onOversChange }}">
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-2) 0;">
+            <div style="font-size: 14px;">Last man batting</div>
+            <div onClick="{{ toggleLastMan }}" style="{{ toggleTrackStyle }}">
+              <div style="{{ toggleKnobStyle }}"></div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-block" onClick="{{ goToStep2 }}" disabled="{{ step1Disabled }}">Select Teams</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+        <div style="animation: ccFadeUp 0.4s ease both; display: flex; flex-direction: column; gap: var(--space-4);">
+          <div style="font-size: 12.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">Tap a player to cycle Team A → Team B → unassigned</div>
+
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            <sc-for list="{{ players }}" as="p" hint-placeholder-count="10">
+              <div onClick="{{ p.onTap }}" style="display: flex; align-items: center; justify-content: space-between; padding: var(--space-3); background: var(--color-surface); border-radius: var(--radius-md); cursor: pointer; border: 1px solid {{ p.borderColor }};" style-active="transform: scale(0.99);">
+                <div>
+                  <div style="font-size: 14px; font-weight: 500;">{{ p.name }}</div>
+                  <div style="font-size: 11px; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-top: 1px;">{{ p.role }}</div>
+                </div>
+                <span class="tag {{ p.tagClass }}">{{ p.teamLabel }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display: flex; gap: var(--space-3); font-size: 12.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">
+            <div>Team A: {{ teamACount }}</div>
+            <div>Team B: {{ teamBCount }}</div>
+          </div>
+
+          <button class="btn btn-primary btn-block" onClick="{{ goToStep3 }}" disabled="{{ step2Disabled }}">Save Teams &amp; Proceed to Toss</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+        <div style="animation: ccFadeUp 0.4s ease both; display: flex; flex-direction: column; align-items: center; gap: var(--space-6); padding-top: var(--space-6);">
+          <div style="font-family: var(--font-heading); font-size: 16px; color: color-mix(in srgb, var(--color-text) 65%, transparent);">Team A vs Team B</div>
+
+          <div style="width: 96px; height: 96px; perspective: 600px;">
+            <div style="{{ coinStyle }}">
+              <div style="width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--color-accent-400), var(--color-accent-800)); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md); font-family: var(--font-heading); font-size: 28px;">🏏</div>
+            </div>
+          </div>
+
+          <sc-if value="{{ tossIdle }}" hint-placeholder-val="{{ true }}">
+            <button class="btn btn-primary" onClick="{{ flipCoin }}">Flip the Coin</button>
+          </sc-if>
+
+          <sc-if value="{{ tossResolved }}" hint-placeholder-val="{{ false }}">
+            <div style="animation: ccPop 0.35s ease both; display: flex; flex-direction: column; align-items: center; gap: var(--space-4); width: 100%;">
+              <div style="font-family: var(--font-heading); font-size: 19px; text-align: center;">🎉 {{ tossWinnerName }} won the toss!</div>
+              <div style="font-size: 13px; color: color-mix(in srgb, var(--color-text) 60%, transparent);">What's the decision?</div>
+              <div class="seg">
+                <label class="seg-opt"><input type="radio" name="choice" checked="{{ isBat }}" onChange="{{ chooseBat }}"><span class="dot"></span>Bat</label>
+                <label class="seg-opt"><input type="radio" name="choice" checked="{{ isBowl }}" onChange="{{ chooseBowl }}"><span class="dot"></span>Bowl</label>
+              </div>
+              <button class="btn btn-primary btn-block" onClick="{{ goToStep4 }}">Confirm &amp; Start Match</button>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
+        <div style="animation: ccFadeUp 0.4s ease both; display: flex; flex-direction: column; gap: var(--space-4);">
+          <div class="card elev-sm" style="align-items: center; text-align: center; padding: var(--space-6) var(--space-4);">
+            <div style="font-size: 34px;">✅</div>
+            <div class="card-title" style="margin-top: var(--space-2);">Match ready</div>
+            <div class="card-body">{{ venue }} · {{ date }} · {{ overs }} overs</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+            <div style="display: flex; justify-content: space-between; font-size: 13.5px; padding: var(--space-2) 0; border-bottom: 1px solid var(--color-divider);"><span>Team A</span><span style="color: color-mix(in srgb, var(--color-text) 60%, transparent);">{{ teamACount }} players</span></div>
+            <div style="display: flex; justify-content: space-between; font-size: 13.5px; padding: var(--space-2) 0; border-bottom: 1px solid var(--color-divider);"><span>Team B</span><span style="color: color-mix(in srgb, var(--color-text) 60%, transparent);">{{ teamBCount }} players</span></div>
+            <div style="display: flex; justify-content: space-between; font-size: 13.5px; padding: var(--space-2) 0;"><span>Toss</span><span style="color: var(--color-accent-300);">{{ tossWinnerName }} chose to {{ tossChoiceLabel }}</span></div>
+          </div>
+          <a href="Live Scoring.dc.html" class="btn btn-primary btn-block" style="text-decoration: none;">Go to Live Scoring →</a>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const PLAYERS = [
+  { id: 1, name: 'Aman Kapoor', role: 'All-rounder' },
+  { id: 2, name: 'Rohan Mehta', role: 'Batsman' },
+  { id: 3, name: 'Idrish Laxmidhar', role: 'Bowler' },
+  { id: 4, name: 'John Doe', role: 'All-rounder' },
+  { id: 5, name: 'Sameer Joshi', role: 'Bowler' },
+  { id: 6, name: 'Vivek Rana', role: 'Bowler' },
+  { id: 7, name: 'Kunal Verma', role: 'Bowler' },
+  { id: 8, name: 'Arjun Nair', role: 'Batsman' },
+  { id: 9, name: 'Priya Shah', role: 'Wicket-keeper' },
+  { id: 10, name: 'Karan Mehta', role: 'Batsman' },
+  { id: 11, name: 'Rahul Singh', role: 'All-rounder' },
+  { id: 12, name: 'Dev Patel', role: 'Batsman' },
+];
+
+class Component extends DCLogic {
+  state = {
+    step: 1, venue: 'Riverside Turf, Sec 21', date: '2026-08-15', overs: 20, lastMan: true,
+    assign: {}, coinFlipping: false, tossResult: null, choice: 'bat',
+  };
+
+  onVenueChange(e) { this.setState({ venue: e.target.value }); }
+  onDateChange(e) { this.setState({ date: e.target.value }); }
+  onOversChange(e) { this.setState({ overs: e.target.value }); }
+  toggleLastMan() { this.setState(s => ({ lastMan: !s.lastMan })); }
+  goBack() { this.setState(s => ({ step: Math.max(1, s.step - 1) })); }
+  goToStep2() { this.setState({ step: 2 }); }
+  goToStep3() { this.setState({ step: 3 }); }
+  goToStep4() { this.setState({ step: 4 }); }
+  cycleAssign(id) {
+    this.setState(s => {
+      const cur = s.assign[id];
+      const next = cur === 'A' ? 'B' : cur === 'B' ? null : 'A';
+      return { assign: { ...s.assign, [id]: next } };
+    });
+  }
+  flipCoin() {
+    this.setState({ coinFlipping: true });
+    setTimeout(() => {
+      const winner = Math.random() < 0.5 ? 'A' : 'B';
+      this.setState({ coinFlipping: false, tossResult: winner });
+    }, 1400);
+  }
+  chooseBat() { this.setState({ choice: 'bat' }); }
+  chooseBowl() { this.setState({ choice: 'bowl' }); }
+
+  renderVals() {
+    const s = this.state;
+    const titles = { 1: 'Create Match', 2: 'Select Teams', 3: 'Toss', 4: 'All Set' };
+    const players = PLAYERS.map(p => {
+      const team = s.assign[p.id] || null;
+      return {
+        ...p,
+        teamLabel: team === 'A' ? 'Team A' : team === 'B' ? 'Team B' : 'Unassigned',
+        tagClass: team === 'A' ? 'tag-accent' : team === 'B' ? 'tag-accent-2' : 'tag-neutral',
+        borderColor: team ? 'var(--color-divider)' : 'transparent',
+        onTap: () => this.cycleAssign(p.id),
+      };
+    });
+    const teamACount = players.filter(p => p.teamLabel === 'Team A').length;
+    const teamBCount = players.filter(p => p.teamLabel === 'Team B').length;
+
+    const dots = [1, 2, 3, 4].map(n => ({
+      style: `width: 26px; height: 3px; border-radius: 2px; background: ${n <= s.step ? 'var(--color-accent)' : 'var(--color-divider)'};`
+    }));
+
+    return {
+      stepTitle: titles[s.step],
+      backColor: s.step === 1 ? 'color-mix(in srgb, var(--color-text) 25%, transparent)' : 'var(--color-text)',
+      goBack: () => this.goBack(),
+      dots,
+      isStep1: s.step === 1, isStep2: s.step === 2, isStep3: s.step === 3, isStep4: s.step === 4,
+      venue: s.venue, date: s.date, overs: s.overs,
+      onVenueChange: (e) => this.onVenueChange(e),
+      onDateChange: (e) => this.onDateChange(e),
+      onOversChange: (e) => this.onOversChange(e),
+      toggleLastMan: () => this.toggleLastMan(),
+      toggleTrackStyle: `width: 42px; height: 24px; border-radius: 12px; padding: 2px; cursor: pointer; background: ${s.lastMan ? 'var(--color-accent-700)' : 'var(--color-neutral-800)'}; display: flex; justify-content: ${s.lastMan ? 'flex-end' : 'flex-start'}; transition: background 0.2s ease;`,
+      toggleKnobStyle: 'width: 20px; height: 20px; border-radius: 50%; background: var(--color-text);',
+      step1Disabled: !s.venue,
+      goToStep2: () => this.goToStep2(),
+      players, teamACount, teamBCount,
+      step2Disabled: teamACount === 0 || teamBCount === 0,
+      goToStep3: () => this.goToStep3(),
+      coinStyle: `width: 100%; height: 100%; transform-style: preserve-3d; ${s.coinFlipping ? 'animation: coinFlip 1.4s cubic-bezier(.2,.6,.3,1) both;' : ''}`,
+      tossIdle: !s.coinFlipping && !s.tossResult,
+      tossResolved: !s.coinFlipping && !!s.tossResult,
+      flipCoin: () => this.flipCoin(),
+      tossWinnerName: s.tossResult === 'A' ? 'Team A' : s.tossResult === 'B' ? 'Team B' : '',
+      isBat: s.choice === 'bat', isBowl: s.choice === 'bowl',
+      chooseBat: () => this.chooseBat(), chooseBowl: () => this.chooseBowl(),
+      tossChoiceLabel: s.choice,
+      goToStep4: () => this.goToStep4(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

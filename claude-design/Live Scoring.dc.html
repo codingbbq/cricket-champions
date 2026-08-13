@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#161826">
+  <link rel="stylesheet" href="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/styles.css">
+  <script src="_ds/nocturne-83a7ac5e-190c-4663-ae12-f51d717ce80c/_ds_bundle.js"></script>
+  <style>
+    @keyframes ccPop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    @keyframes ccSlideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+    html, body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</helmet>
+
+<div style="min-height: 100dvh; background: var(--color-bg); color: var(--color-text); display: flex; justify-content: center;">
+  <div style="width: 100%; max-width: 480px; min-height: 100dvh; display: flex; flex-direction: column;">
+
+    <div style="position: sticky; top: 0; z-index: 20; padding: calc(env(safe-area-inset-top, 0px) + var(--space-3)) var(--space-4) var(--space-3); background: color-mix(in srgb, var(--color-bg) 90%, transparent); backdrop-filter: blur(14px); border-bottom: 1px solid var(--color-divider);">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: var(--space-3);">
+          <a href="Team Setup &amp; Toss.dc.html" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: var(--color-text);">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 18l-6-6 6-6"></path></svg>
+          </a>
+          <div>
+            <div style="font-family: var(--font-heading); font-size: 16px;">Team A vs Team B</div>
+            <div style="font-size: 11px; color: color-mix(in srgb, var(--color-text) 50%, transparent);">Riverside Turf · 20 overs</div>
+          </div>
+        </div>
+        <span style="display: flex; align-items: center; gap: 5px; font-size: 11px; color: #d97757;">
+          <span style="width: 7px; height: 7px; border-radius: 50%; background: #d97757; animation: ccPop 1s ease-in-out infinite alternate;"></span>LIVE
+        </span>
+      </div>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); padding-bottom: var(--space-8);">
+
+      <div class="card elev-sm" style="align-items: center; text-align: center; gap: 2px; padding: var(--space-4);">
+        <div class="card-kicker">{{ battingTeam }} batting</div>
+        <div style="font-family: var(--font-heading); font-size: 40px;">{{ score }}-{{ wickets }}</div>
+        <div style="font-size: 12.5px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ oversLabel }} overs · RR {{ runRate }}</div>
+      </div>
+
+      <div style="display: flex; gap: var(--space-3);">
+        <div style="flex: 1; background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-3); border: 1px solid var(--color-accent);">
+          <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500;">{{ strikerName }} <span style="color: var(--color-accent);">●</span></div>
+          <div style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 55%, transparent); margin-top: 2px;">{{ strikerRuns }} ({{ strikerBalls }})</div>
+        </div>
+        <div style="flex: 1; background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-3);">
+          <div style="font-size: 13px; font-weight: 500;">{{ nonStrikerName }}</div>
+          <div style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 55%, transparent); margin-top: 2px;">{{ nonStrikerRuns }} ({{ nonStrikerBalls }})</div>
+        </div>
+      </div>
+
+      <div style="background: var(--color-surface); border-radius: var(--radius-md); padding: var(--space-3); display: flex; align-items: center; justify-content: space-between;">
+        <div style="font-size: 13px; font-weight: 500;">🎯 {{ bowlerName }}</div>
+        <div style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 55%, transparent);">{{ bowlerFigures }}</div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-bottom: var(--space-2);">This over</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <sc-for list="{{ pips }}" as="pip" hint-placeholder-count="0">
+            <div style="{{ pip.style }}">{{ pip.label }}</div>
+          </sc-for>
+          <sc-if value="{{ noPipsYet }}" hint-placeholder-val="{{ true }}">
+            <div style="font-size: 12px; color: color-mix(in srgb, var(--color-text) 40%, transparent); padding: 6px 0;">No balls bowled yet</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2);">
+          <sc-for list="{{ runButtons }}" as="rb" hint-placeholder-count="6">
+            <button class="btn btn-secondary" onClick="{{ rb.onTap }}" style="font-family: var(--font-heading); font-size: 17px; height: 46px;">{{ rb.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2);">
+          <button class="btn btn-secondary" onClick="{{ onWide }}" style="font-size: 12.5px;">Wide</button>
+          <button class="btn btn-secondary" onClick="{{ onNoBall }}" style="font-size: 12.5px;">No ball</button>
+          <button class="btn btn-secondary" onClick="{{ onBye }}" style="font-size: 12.5px;">Bye</button>
+          <button class="btn btn-secondary" onClick="{{ onLegBye }}" style="font-size: 12.5px;">Leg bye</button>
+        </div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-2);">
+          <button class="btn" onClick="{{ onWicket }}" style="background: var(--color-accent-700); color: var(--color-accent-100); font-weight: 500; height: 44px;">WICKET</button>
+          <button class="btn btn-ghost" onClick="{{ onUndo }}" disabled="{{ undoDisabled }}">Undo</button>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 50%, transparent); margin-bottom: var(--space-2);">Commentary</div>
+        <div style="display: flex; flex-direction: column-reverse; gap: 6px; max-height: 220px; overflow-y: auto;">
+          <sc-for list="{{ log }}" as="entry" hint-placeholder-count="0">
+            <div style="animation: ccSlideIn 0.2s ease both; display: flex; gap: 8px; font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid var(--color-divider);">
+              <span style="color: color-mix(in srgb, var(--color-text) 45%, transparent); min-width: 34px;">{{ entry.ball }}</span>
+              <span>{{ entry.text }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const LINEUP = ['Aman Kapoor', 'Rohan Mehta', 'Idrish Laxmidhar', 'John Doe', 'Sameer Joshi', 'Vivek Rana', 'Kunal Verma'];
+const BOWLERS = ['Karan Mehta', 'Rahul Singh', 'Dev Patel', 'Priya Shah'];
+
+function initState() {
+  return {
+    score: 0, wickets: 0, legalBalls: 0, oversCompleted: 0,
+    strikerIdx: 0, nonStrikerIdx: 1, nextInIdx: 2, bowlerIdx: 0,
+    batStats: { [LINEUP[0]]: { runs: 0, balls: 0 }, [LINEUP[1]]: { runs: 0, balls: 0 } },
+    bowlStats: { [BOWLERS[0]]: { runs: 0, wkts: 0, legalBalls: 0 } },
+    pips: [], log: [],
+  };
+}
+
+class Component extends DCLogic {
+  state = { ...initState(), history: [] };
+  ballCounter = 0;
+
+  snapshot() {
+    const { history, ...rest } = this.state;
+    return JSON.parse(JSON.stringify(rest));
+  }
+  pushHistory() {
+    this.setState(s => ({ history: [...s.history, this.snapshot()] }));
+  }
+  ensureBat(s, name) { if (!s.batStats[name]) s.batStats[name] = { runs: 0, balls: 0 }; }
+  ensureBowl(s, name) { if (!s.bowlStats[name]) s.bowlStats[name] = { runs: 0, wkts: 0, legalBalls: 0 }; }
+
+  applyBall(mutator) {
+    this.pushHistory();
+    this.setState(s => {
+      const n = JSON.parse(JSON.stringify(s));
+      mutator(n);
+      return n;
+    });
+  }
+
+  ballLabel(s) { return `${s.oversCompleted}.${s.legalBalls === 0 ? (s.oversCompleted === 0 ? 0 : 6) : s.legalBalls}`; }
+
+  endOverIfNeeded(n) {
+    if (n.legalBalls === 6) {
+      n.legalBalls = 0;
+      n.pips = [];
+      const tmp = n.strikerIdx; n.strikerIdx = n.nonStrikerIdx; n.nonStrikerIdx = tmp;
+      n.oversCompleted += 1;
+      n.bowlerIdx = (n.bowlerIdx + 1) % BOWLERS.length;
+      this.ensureBowl(n, BOWLERS[n.bowlerIdx]);
+    }
+  }
+
+  addRuns(runs) {
+    this.applyBall(n => {
+      const label = this.ballLabel(n);
+      const striker = LINEUP[n.strikerIdx];
+      const bowler = BOWLERS[n.bowlerIdx];
+      this.ensureBat(n, striker); this.ensureBowl(n, bowler);
+      n.score += runs;
+      n.batStats[striker].runs += runs;
+      n.batStats[striker].balls += 1;
+      n.bowlStats[bowler].runs += runs;
+      n.bowlStats[bowler].legalBalls += 1;
+      n.pips.push({ label: String(runs), kind: runs >= 4 ? 'boundary' : 'normal' });
+      n.log.push({ ball: label, text: runs === 0 ? 'Dot ball' : `${runs} run${runs > 1 ? 's' : ''} — ${striker}` });
+      n.legalBalls += 1;
+      if (runs % 2 === 1) { const t = n.strikerIdx; n.strikerIdx = n.nonStrikerIdx; n.nonStrikerIdx = t; }
+      this.endOverIfNeeded(n);
+    });
+  }
+  addExtra(type) {
+    this.applyBall(n => {
+      const label = this.ballLabel(n);
+      const bowler = BOWLERS[n.bowlerIdx];
+      this.ensureBowl(n, bowler);
+      n.score += 1;
+      n.bowlStats[bowler].runs += 1;
+      n.pips.push({ label: type, kind: 'extra' });
+      n.log.push({ ball: label, text: `${type === 'wd' ? 'Wide' : 'No ball'} +1` });
+    });
+  }
+  addByes(type) {
+    this.applyBall(n => {
+      const label = this.ballLabel(n);
+      const striker = LINEUP[n.strikerIdx];
+      this.ensureBat(n, striker);
+      n.score += 1;
+      n.batStats[striker].balls += 1;
+      n.pips.push({ label: type, kind: 'extra' });
+      n.log.push({ ball: label, text: `${type === 'bye' ? 'Bye' : 'Leg bye'} +1` });
+      n.legalBalls += 1;
+      this.endOverIfNeeded(n);
+    });
+  }
+  wicket() {
+    this.applyBall(n => {
+      const label = this.ballLabel(n);
+      const striker = LINEUP[n.strikerIdx];
+      const bowler = BOWLERS[n.bowlerIdx];
+      this.ensureBat(n, striker); this.ensureBowl(n, bowler);
+      n.wickets += 1;
+      n.batStats[striker].balls += 1;
+      n.bowlStats[bowler].legalBalls += 1;
+      n.bowlStats[bowler].wkts += 1;
+      n.pips.push({ label: 'W', kind: 'wicket' });
+      n.log.push({ ball: label, text: `OUT — ${striker}` });
+      n.legalBalls += 1;
+      if (n.nextInIdx < LINEUP.length) {
+        n.strikerIdx = n.nextInIdx;
+        n.nextInIdx += 1;
+        this.ensureBat(n, LINEUP[n.strikerIdx]);
+      }
+      this.endOverIfNeeded(n);
+    });
+  }
+  undo() {
+    this.setState(s => {
+      if (!s.history.length) return s;
+      const prev = s.history[s.history.length - 1];
+      return { ...prev, history: s.history.slice(0, -1) };
+    });
+  }
+
+  renderVals() {
+    const s = this.state;
+    const striker = LINEUP[s.strikerIdx];
+    const nonStriker = LINEUP[s.nonStrikerIdx];
+    const bowler = BOWLERS[s.bowlerIdx];
+    const bs = s.batStats[striker] || { runs: 0, balls: 0 };
+    const ns = s.batStats[nonStriker] || { runs: 0, balls: 0 };
+    const bw = s.bowlStats[bowler] || { runs: 0, wkts: 0, legalBalls: 0 };
+    const totalBalls = s.oversCompleted * 6 + s.legalBalls;
+    const runRate = totalBalls > 0 ? (s.score / (totalBalls / 6)).toFixed(2) : '0.00';
+
+    const pipStyle = (kind) => {
+      const bg = kind === 'wicket' ? 'var(--color-accent-700)' : kind === 'boundary' ? 'var(--color-accent-800)' : kind === 'extra' ? 'var(--color-neutral-800)' : 'var(--color-surface)';
+      const color = kind === 'wicket' || kind === 'boundary' ? 'var(--color-accent-100)' : 'var(--color-text)';
+      return `width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-family: var(--font-heading); background: ${bg}; color: ${color};`;
+    };
+
+    return {
+      battingTeam: 'Team A',
+      score: s.score, wickets: s.wickets,
+      oversLabel: `${s.oversCompleted}.${s.legalBalls}`,
+      runRate,
+      strikerName: striker, strikerRuns: bs.runs, strikerBalls: bs.balls,
+      nonStrikerName: nonStriker, nonStrikerRuns: ns.runs, nonStrikerBalls: ns.balls,
+      bowlerName: bowler,
+      bowlerFigures: `${Math.floor(bw.legalBalls / 6)}.${bw.legalBalls % 6}-${bw.runs}-${bw.wkts}`,
+      pips: s.pips.map(p => ({ label: p.label, style: pipStyle(p.kind) })),
+      noPipsYet: s.pips.length === 0,
+      runButtons: [0, 1, 2, 3, 4, 6].map(n => ({ label: String(n), onTap: () => this.addRuns(n) })),
+      onWide: () => this.addExtra('wd'),
+      onNoBall: () => this.addExtra('nb'),
+      onBye: () => this.addByes('bye'),
+      onLegBye: () => this.addByes('lb'),
+      onWicket: () => this.wicket(),
+      onUndo: () => this.undo(),
+      undoDisabled: s.history.length === 0,
+      log: s.log.slice(-30).map(e => e),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
