@@ -45,6 +45,8 @@ export interface Match {
     teamA: TeamInMatch;
     teamB: TeamInMatch;
   };
+  teamA?: string; // Team ID for first team
+  teamB?: string; // Team ID for second team
   date: any; // Firestore Timestamp
   overs: number;
   lastManBatting: boolean;
@@ -54,4 +56,5 @@ export interface Match {
     winnerId: string; // Will be 'teamA' or 'teamB'
     choice: 'bat' | 'bowl';
   };
+  innings?: Innings[];
 }

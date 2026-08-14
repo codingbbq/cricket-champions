@@ -215,7 +215,7 @@ const HomePage = () => {
                     {/* Result Text */}
                     {hasScore && (
                       <div className="text-xs text-amber-400 font-medium mb-3">
-                        Match in progress
+                        {isLive ? 'Match in progress' : isCompleted ? 'Match completed' : ''}
                       </div>
                     )}
 
@@ -245,21 +245,44 @@ const HomePage = () => {
                       <div className="h-px bg-neutral-800 mb-3"></div>
                       <div className="text-xs uppercase tracking-wider text-neutral-600 mb-2">Top performers</div>
                       <div className="space-y-2 mb-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <span>Player Name</span>
-                          <span className="text-neutral-600 font-semibold">Stats</span>
-                        </div>
+                        {isCompleted && match.innings && match.innings.length > 0 ? (
+                          (() => {
+                            const allBalls = match.innings.flatMap((inn: any) => inn.balls || []);
+                            const strikerStats = new Map<string, any>();
+                            
+                            allBalls.forEach((ball: any) => {
+                              if (!strikerStats.has(ball.strikerId)) {
+                                strikerStats.set(ball.strikerId, { runs: 0, balls: 0, playerId: ball.strikerId });
+                              }
+                              const stats = strikerStats.get(ball.strikerId);
+                              stats.runs += ball.runs;
+                              stats.balls += 1;
+                            });
+                            
+                            return Array.from(strikerStats.values())
+                              .sort((a, b) => b.runs - a.runs)
+                              .slice(0, 3)
+                              .map((stat: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between text-sm">
+                                  <span className="text-neutral-300">Top scorer</span>
+                                  <span className="text-neutral-400 font-semibold">{stat.runs}({stat.balls})</span>
+                                </div>
+                              ));
+                          })()
+                        ) : (
+                          <div className="text-xs text-neutral-600">Match data not available</div>
+                        )}
                       </div>
                       <div className="text-xs text-neutral-600">
                         Overs: {match.overs} · Format: {match.overs} overs
                       </div>
                       {isCompleted && (
-                        <a
-                          href={`/match/${match.id}`}
-                          className="inline-block mt-3 text-xs text-amber-400 no-underline"
+                        <button
+                          onClick={() => navigate(`/match/${match.id}`)}
+                          className="inline-block mt-3 text-xs text-amber-400 hover:text-amber-300 transition-colors"
                         >
                           View full scorecard →
-                        </a>
+                        </button>
                       )}
                     </div>
                   )}

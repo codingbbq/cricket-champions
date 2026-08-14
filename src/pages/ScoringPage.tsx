@@ -28,6 +28,8 @@ const ScoringPage = () => {
   const [showStrikerDropdown, setShowStrikerDropdown] = useState(false);
   const [showNonStrikerDropdown, setShowNonStrikerDropdown] = useState(false);
   const [showBowlerDropdown, setShowBowlerDropdown] = useState(false);
+  const [showNoBallPopup, setShowNoBallPopup] = useState(false);
+  const [noBallRuns, setNoBallRuns] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -168,9 +170,14 @@ const ScoringPage = () => {
     let newWickets = currentInnings.wickets;
     let tempStriker = striker;
     let tempNonStriker = nonStriker;
+    let runsToAdd = newBall.runs;
 
+    // Add automatic +1 run for wide and no-ball
     if (newBall.isExtra && (newBall.extraType === 'wide' || newBall.extraType === 'no-ball')) {
-      newScore++;
+      runsToAdd += 1;
+      newScore = currentInnings.score + runsToAdd;
+    } else {
+      newScore = currentInnings.score + runsToAdd;
     }
 
     if (newBall.isWicket) {
@@ -190,41 +197,25 @@ const ScoringPage = () => {
     // Defensive check: ensure we have valid team data before checking innings end
     if (!currentBattingTeam || !Array.isArray(currentBattingTeam.players)) {
       console.warn('Invalid batting team data:', currentBattingTeam);
-      // Just update innings without checking for end condition
       updateInnings({ ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs });
       return;
     }
     
     const battingTeamPlayerIds = currentBattingTeam.players;
     const battingTeamPlayerCount = battingTeamPlayerIds.length;
-    // Max wickets is total players - 1 (last man can't bat alone)
-    const maxWickets = Math.max(1, battingTeamPlayerCount - 1);
+    
+    // Max wickets: if lastManBatting is true, allow all players; otherwise, last man can't bat alone
+    const maxWickets = match.lastManBatting ? battingTeamPlayerCount : Math.max(1, battingTeamPlayerCount - 1);
 
     // Check for innings end (all wickets lost OR all overs completed)
-    // Only end innings if we've completed at least one full over or all overs
     const oversCompleted = match.overs && match.overs > 0 && overs >= match.overs;
     const wicketsLost = newWickets >= maxWickets;
-    // Require at least 6 valid balls (1 over) before ending innings
     const inningsEnded = (wicketsLost || oversCompleted) && validBalls.length >= 6;
-    
-    console.log('Innings check:', { 
-      battingTeamPlayerCount, 
-      maxWickets, 
-      newWickets, 
-      wicketsLost, 
-      oversCompleted, 
-      inningsEnded, 
-      overs, 
-      matchOvers: match.overs,
-      validBallsLength: validBalls.length
-    });
     
     if (inningsEnded) {
       if (isFirstInnings) {
-        // First innings complete, move to second innings
         handleInningsEnd();
       } else {
-        // Second innings complete, determine match winner
         const winner = newScore > firstInnings!.score ? battingTeam : bowlingTeam;
         const margin = newScore > firstInnings!.score 
           ? `${maxWickets - newWickets} wickets` 
@@ -248,17 +239,30 @@ const ScoringPage = () => {
       return;
     }
 
-
     // Handle strike rotation
-    if (!newBall.isExtra || newBall.extraType === 'no-ball') {
-      if (newBall.runs % 2 !== 0) { // Odd runs
+    // For wide: no strike change
+    // For no-ball: strike changes on odd runs (including the automatic +1)
+    // For normal ball: strike changes on odd runs or at end of over
+    const isWide = newBall.isExtra && newBall.extraType === 'wide';
+    const isNoBall = newBall.isExtra && newBall.extraType === 'no-ball';
+    
+    if (!isWide) {
+      // Check if strike should change due to odd runs
+      if (runsToAdd % 2 !== 0) {
         setStriker(tempNonStriker);
         setNonStriker(tempStriker);
       }
-      if (ballsInOver === 0 && validBalls.length > 0) { // End of over
+      // Check if over is complete (and we have at least one ball)
+      if (ballsInOver === 0 && validBalls.length > 0) {
         setStriker(tempNonStriker);
         setNonStriker(tempStriker);
-        setBowler(null); // Force new bowler selection
+        setBowler(null);
+      }
+    } else if (isNoBall) {
+      // No-ball: check odd runs for strike change
+      if (runsToAdd % 2 !== 0) {
+        setStriker(tempNonStriker);
+        setNonStriker(tempStriker);
       }
     }
 
@@ -272,7 +276,22 @@ const ScoringPage = () => {
 
   const handleExtra = (extraType: 'wide' | 'no-ball') => {
     if (!striker || !bowler) return;
-    processBall({ bowlerId: bowler.id, strikerId: striker.id, runs: 0, isExtra: true, extraType, isWicket: false });
+    
+    if (extraType === 'wide') {
+      // Wide ball: automatically adds 1 run, no strike change
+      processBall({ bowlerId: bowler.id, strikerId: striker.id, runs: 0, isExtra: true, extraType: 'wide', isWicket: false });
+    } else {
+      // No-ball: show popup to select extra runs
+      setNoBallRuns(0);
+      setShowNoBallPopup(true);
+    }
+  };
+
+  const handleNoBallSubmit = (extraRuns: number) => {
+    if (!striker || !bowler) return;
+    processBall({ bowlerId: bowler.id, strikerId: striker.id, runs: extraRuns, isExtra: true, extraType: 'no-ball', isWicket: false });
+    setShowNoBallPopup(false);
+    setNoBallRuns(0);
   };
 
   const handleWicket = () => {
@@ -382,7 +401,7 @@ const ScoringPage = () => {
               </button>
               {showStrikerDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg z-10 max-h-48 overflow-y-auto">
-                  {players.filter(p => battingTeam.players.includes(p.id)).map(player => (
+                  {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== nonStriker?.id)).map(player => (
                     <button
                       key={player.id}
                       onClick={() => {
@@ -419,7 +438,7 @@ const ScoringPage = () => {
               </button>
               {showNonStrikerDropdown && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg z-10 max-h-48 overflow-y-auto">
-                  {players.filter(p => battingTeam.players.includes(p.id)).map(player => (
+                  {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== striker?.id)).map(player => (
                     <button
                       key={player.id}
                       onClick={() => {
@@ -477,17 +496,51 @@ const ScoringPage = () => {
           <div>
             <div className="text-xs text-neutral-400 uppercase mb-2">This over</div>
             <div className="flex gap-1.5 flex-wrap">
-              {currentInnings.balls
-                .filter(b => !b.isExtra || b.extraType === 'no-ball')
-                .slice(-6)
-                .map((ball, idx) => (
+              {(() => {
+                // Calculate which legal ball number marks the start of current over
+                const currentOverStartLegalBall = Math.floor(validBalls.length / 6) * 6;
+                
+                // Find all balls that belong to the current over
+                // A ball belongs to current over if it's bowled after the start of current over
+                let legalBallCount = 0;
+                const ballsInCurrentOver: typeof currentInnings.balls = [];
+                
+                for (const ball of currentInnings.balls) {
+                  // Count legal balls (non-wide, or no-ball which counts as legal for over completion)
+                  if (!ball.isExtra || ball.extraType === 'no-ball') {
+                    if (legalBallCount >= currentOverStartLegalBall) {
+                      ballsInCurrentOver.push(ball);
+                    }
+                    legalBallCount++;
+                  } else {
+                    // Wide balls don't count as legal balls but belong to the over
+                    if (legalBallCount >= currentOverStartLegalBall) {
+                      ballsInCurrentOver.push(ball);
+                    }
+                  }
+                  
+                  // Stop if we've completed the current over (6 legal balls)
+                  if (legalBallCount >= currentOverStartLegalBall + 6) {
+                    break;
+                  }
+                }
+                
+                return ballsInCurrentOver.map((ball, idx) => (
                   <div
                     key={idx}
-                    className="w-7 h-7 rounded bg-neutral-800 flex items-center justify-center text-xs font-semibold text-neutral-300"
+                    className={`w-7 h-7 rounded flex items-center justify-center text-xs font-semibold ${
+                      ball.isExtra && ball.extraType === 'wide'
+                        ? 'bg-blue-900 text-blue-300'
+                        : ball.isExtra && ball.extraType === 'no-ball'
+                        ? 'bg-orange-900 text-orange-300'
+                        : 'bg-neutral-800 text-neutral-300'
+                    }`}
+                    title={ball.isExtra ? `${ball.extraType}` : ''}
                   >
-                    {ball.isWicket ? 'W' : ball.runs}
+                    {ball.isWicket ? 'W' : ball.isExtra && ball.extraType === 'wide' ? 'Wd' : ball.isExtra && ball.extraType === 'no-ball' ? 'Nb' : ball.runs}
                   </div>
-                ))}
+                ));
+              })()}
               {validBalls.length % 6 === 0 && validBalls.length > 0 && (
                 <div className="text-xs text-neutral-500 self-center">Over complete</div>
               )}
@@ -513,25 +566,104 @@ const ScoringPage = () => {
           {/* Commentary */}
           <div>
             <div className="text-xs text-neutral-400 uppercase mb-2">Commentary</div>
-            <div className="space-y-1 max-h-40 overflow-y-auto">
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {currentInnings.balls.length === 0 ? (
-                <div className="text-xs text-neutral-500">No balls bowled yet</div>
+                <div className="text-sm text-neutral-500">No balls bowled yet</div>
               ) : (
                 currentInnings.balls
                   .slice()
                   .reverse()
-                  .slice(0, 10)
-                  .map((ball, idx) => (
-                    <div key={idx} className="text-xs text-neutral-400 pb-1 border-b border-neutral-800">
-                      <span className="text-neutral-600">Ball {ball.ballNumber}:</span> {ball.runs} runs
-                      {ball.isWicket && ' - WICKET!'}
-                      {ball.isExtra && ` (${ball.extraType})`}
-                    </div>
-                  ))
+                  .slice(0, 15)
+                  .map((ball, idx) => {
+                    // Calculate over and ball number from valid balls count
+                    const validBallsUpToThisBall = currentInnings.balls
+                      .slice(0, currentInnings.balls.length - idx)
+                      .filter(b => !b.isExtra || b.extraType === 'no-ball');
+                    const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
+                    const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
+                    const overBallNotation = `${overNumber}.${ballInOver}`;
+                    
+                    // Get current time in IST
+                    const now = new Date();
+                    const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+                    const timeString = istTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                    
+                    // Format runs and extras info
+                    let runsInfo = '';
+                    if (ball.isExtra && ball.extraType === 'wide') {
+                      runsInfo = `${ball.runs} Runs (Wide ball +1) = ${ball.runs + 1} runs`;
+                    } else if (ball.isExtra && ball.extraType === 'no-ball') {
+                      runsInfo = `${ball.runs} Runs (No ball +1) = ${ball.runs + 1} runs`;
+                    } else {
+                      runsInfo = `${ball.runs} runs`;
+                    }
+                    
+                    return (
+                      <div key={idx} className="text-sm text-neutral-300 pb-2 border-b border-neutral-800 last:border-b-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <span className="font-semibold text-amber-400">{overBallNotation}</span>
+                            <span className="text-neutral-500 mx-2">-</span>
+                            <span>{runsInfo}</span>
+                            {ball.isWicket && <span className="ml-2 font-bold text-red-400">WICKET!</span>}
+                          </div>
+                          <span className="text-xs text-neutral-600 whitespace-nowrap">{timeString}</span>
+                        </div>
+                      </div>
+                    );
+                  })
               )}
             </div>
           </div>
         </div>
+
+        {/* No-Ball Popup */}
+        {showNoBallPopup && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-neutral-900 rounded-lg p-6 max-w-sm mx-4 space-y-4">
+              <h3 className="text-lg font-semibold text-white">No-Ball Extra Runs</h3>
+              <p className="text-sm text-neutral-400">Select the runs scored on this no-ball (1 + batsman runs)</p>
+              
+              <div className="grid grid-cols-4 gap-2">
+                {[0, 1, 2, 3, 4, 5, 6].map(runs => (
+                  <button
+                    key={runs}
+                    onClick={() => setNoBallRuns(runs)}
+                    className={`py-2 rounded font-semibold transition-colors ${
+                      noBallRuns === runs
+                        ? 'bg-amber-500 text-black'
+                        : 'bg-neutral-800 text-white hover:bg-neutral-700'
+                    }`}
+                  >
+                    {runs}
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-sm text-neutral-300 bg-neutral-800 rounded p-3">
+                Total runs: <span className="font-semibold text-amber-400">{noBallRuns + 1}</span> (1 + {noBallRuns})
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowNoBallPopup(false);
+                    setNoBallRuns(0);
+                  }}
+                  className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleNoBallSubmit(noBallRuns)}
+                  className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

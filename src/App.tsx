@@ -8,6 +8,7 @@ import CreateMatchPage from './pages/admin/CreateMatchPage';
 import TeamSelectionPage from './pages/admin/TeamSelectionPage';
 import TossPage from './pages/admin/TossPage';
 import ScoringPage from './pages/ScoringPage';
+import MatchSummaryPage from './pages/MatchSummaryPage';
 import StatisticsPage from './pages/admin/StatisticsPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import { ToastProvider, ToastContainer } from './contexts/ToastContext';
@@ -34,6 +35,7 @@ function App() {
         <Route path="/admin/matches/:matchId/teams" element={<ProtectedRoute><TeamSelectionPage /></ProtectedRoute>} />
         <Route path="/admin/matches/:matchId/toss" element={<ProtectedRoute><TossPage /></ProtectedRoute>} />
         <Route path="/scoring/:matchId" element={<ProtectedRoute><ScoringPage /></ProtectedRoute>} />
+        <Route path="/match/:matchId" element={<MatchSummaryPage />} />
         <Route path="/admin/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
         {/* More routes will be added here */}
         </Routes>

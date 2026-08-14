@@ -116,12 +116,6 @@ const MatchesPage = () => {
               +
             </button>
           </div>
-          <div className="flex gap-1.5">
-            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
-            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
-            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
-            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
-          </div>
         </div>
 
         {/* Main Content */}
