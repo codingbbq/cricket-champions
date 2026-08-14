@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import Navigation from '@/components/common/Navigation';
 import { useToast } from '@/contexts/ToastContext';
 import type { Match, Team } from '@/types';
 
@@ -10,12 +9,14 @@ const TossPage = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const [step, setStep] = useState(3); // Start at step 3 (Toss)
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [tossWinnerKey, setTossWinnerKey] = useState<string | null>(null);
   const [decision, setDecision] = useState<'bat' | 'bowl' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFlipping, setIsFlipping] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,9 +81,14 @@ const TossPage = () => {
   }, [matchId, addToast]);
 
   const handleToss = () => {
-    if (teams.length === 0) return;
-    const randomIndex = Math.random() < 0.5 ? 0 : 1;
-    setTossWinnerKey(teams[randomIndex].id);
+    if (teams.length === 0 || isFlipping) return;
+    setIsFlipping(true);
+    setTimeout(() => {
+      const randomIndex = Math.random() < 0.5 ? 0 : 1;
+      setTossWinnerKey(teams[randomIndex].id);
+      setIsFlipping(false);
+      setStep(4);
+    }, 1400);
   };
 
   const handleConfirm = async () => {
@@ -106,118 +112,131 @@ const TossPage = () => {
 
   if (loading) {
     return (
-      <>
-        <Navigation />
-        <div className="container-responsive py-12">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin text-4xl mb-4">⏳</div>
-              <p className="text-gray-600">Loading match data...</p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-neutral-950 text-white flex justify-center items-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-neutral-400">Loading match data...</p>
         </div>
-      </>
+      </div>
     );
   }
 
-  if (error) {
+  if (error || !match || teams.length === 0) {
     return (
-      <>
-        <Navigation />
-        <div className="container-responsive py-12">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="text-4xl mb-4">⚠️</div>
-              <p className="text-red-600 mb-4">{error}</p>
-              <button
-                onClick={() => navigate('/admin/matches')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Back to Matches
-              </button>
-            </div>
-          </div>
+      <div className="min-h-screen bg-neutral-950 text-white flex justify-center items-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⚠️</div>
+          <p className="text-red-400 mb-4">{error || 'Match data is incomplete'}</p>
+          <button
+            onClick={() => navigate('/admin/matches')}
+            className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg"
+          >
+            Back to Matches
+          </button>
         </div>
-      </>
-    );
-  }
-
-  if (!match || teams.length === 0) {
-    return (
-      <>
-        <Navigation />
-        <div className="container-responsive py-12">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="text-4xl mb-4">⚠️</div>
-              <p className="text-gray-600 mb-4">Match data is incomplete</p>
-              <button
-                onClick={() => navigate('/admin/matches')}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Back to Matches
-              </button>
-            </div>
-          </div>
-        </div>
-      </>
+      </div>
     );
   }
 
   const tossWinnerName = tossWinnerKey ? teams.find(t => t.id === tossWinnerKey)?.name : null;
 
   return (
-    <>
-      <Navigation />
-      <div className="container-responsive py-10 flex flex-col items-center">
-        <h1 className="text-3xl font-bold mb-4">Toss Time! 🪙</h1>
-        <h2 className="text-xl mb-6">{teams[0]?.name} vs {teams[1]?.name}</h2>
-
-        {!tossWinnerKey ? (
-          <button 
-            onClick={handleToss} 
-            className="px-6 py-3 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 text-lg font-semibold"
-          >
-            Toss the Coin
-          </button>
-        ) : (
-          <div className="flex flex-col items-center gap-4 p-6 bg-white rounded-lg shadow-md">
-            <p className="text-2xl font-semibold">🎉 {tossWinnerName} won the toss!</p>
-            <p className="text-gray-600">What is your decision?</p>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="decision" 
-                  value="bat" 
-                  onChange={() => setDecision('bat')} 
-                  className="h-4 w-4" 
-                /> 
-                Bat
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="decision" 
-                  value="bowl" 
-                  onChange={() => setDecision('bowl')} 
-                  className="h-4 w-4" 
-                /> 
-                Bowl
-              </label>
-            </div>
-
-            <button 
-              onClick={handleConfirm} 
-              disabled={!decision} 
-              className="mt-4 px-6 py-3 text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 font-semibold"
+    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
+      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950">
+        {/* Header */}
+        <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              onClick={() => navigate(`/admin/matches/${matchId}/teams`)}
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
             >
-              Confirm & Start Match
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
             </button>
+            <div className="text-base font-semibold">Toss</div>
           </div>
-        )}
+          <div className="flex gap-1.5 pl-11">
+            <div className="w-[26px] h-[3px] rounded-sm bg-amber-400"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-amber-400"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-amber-400"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-8 pb-8 flex flex-col items-center justify-center">
+          {!tossWinnerKey ? (
+            <div className="space-y-8 text-center animate-in fade-in">
+              <div className="text-neutral-400 text-sm">
+                {teams[0]?.name} vs {teams[1]?.name}
+              </div>
+
+              <div className="w-24 h-24 mx-auto">
+                <div
+                  className={`w-full h-full rounded-full bg-gradient-to-br from-amber-400 to-amber-700 flex items-center justify-center text-5xl shadow-lg ${
+                    isFlipping ? 'animate-spin' : ''
+                  }`}
+                  style={isFlipping ? { animationDuration: '1.4s', animationTimingFunction: 'cubic-bezier(.2,.6,.3,1)' } : {}}
+                >
+                  🏏
+                </div>
+              </div>
+
+              <button
+                onClick={handleToss}
+                disabled={isFlipping}
+                className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isFlipping ? 'Flipping...' : 'Flip the Coin'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6 w-full animate-in fade-in">
+              <div className="text-center">
+                <div className="text-3xl mb-2">🎉</div>
+                <div className="text-lg font-semibold">{tossWinnerName} won the toss!</div>
+              </div>
+
+              <div className="text-center text-sm text-neutral-400">What's the decision?</div>
+
+              <div className="space-y-3">
+                <label className="flex items-center gap-3 p-3 bg-neutral-900 rounded-lg cursor-pointer hover:bg-neutral-800 transition-colors">
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="bat"
+                    checked={decision === 'bat'}
+                    onChange={() => setDecision('bat')}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">Bat</span>
+                </label>
+                <label className="flex items-center gap-3 p-3 bg-neutral-900 rounded-lg cursor-pointer hover:bg-neutral-800 transition-colors">
+                  <input
+                    type="radio"
+                    name="decision"
+                    value="bowl"
+                    checked={decision === 'bowl'}
+                    onChange={() => setDecision('bowl')}
+                    className="w-4 h-4"
+                  />
+                  <span className="font-medium">Bowl</span>
+                </label>
+              </div>
+
+              <button
+                onClick={handleConfirm}
+                disabled={!decision}
+                className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+              >
+                Confirm & Start Match
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 

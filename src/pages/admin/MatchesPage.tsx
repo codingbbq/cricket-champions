@@ -1,18 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
-import Navigation from '@/components/common/Navigation';
-import Button from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
 import type { Match } from '@/types';
 
 const MatchesPage = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'live' | 'completed'>('all');
 
   useEffect(() => {
     let isMounted = true;
@@ -57,9 +54,6 @@ const MatchesPage = () => {
     };
   }, []);
 
-  const filteredMatches = filter === 'all' 
-    ? matches 
-    : matches.filter(m => m.status === filter);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -99,120 +93,151 @@ const MatchesPage = () => {
 
   if (loading) {
     return (
-      <>
-        <Navigation />
-        <div className="container-responsive py-12">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin text-4xl mb-4">⏳</div>
-              <p className="text-gray-600">Loading matches...</p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-neutral-950 text-white flex justify-center items-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-neutral-400">Loading matches...</p>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <Navigation />
-      <div className="container-responsive py-8">
-        <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Matches</h1>
-            <p className="text-gray-600">Manage and track your cricket matches</p>
-          </div>
-          <Link to="/admin/matches/new">
-            <Button variant="primary" size="lg">
-              + Create New Match
-            </Button>
-          </Link>
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex gap-2 mb-8 flex-wrap">
-          {(['all', 'pending', 'live', 'completed'] as const).map(status => (
+    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
+      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950">
+        {/* Header */}
+        <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-base font-semibold">Matches</div>
             <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                filter === status
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+              onClick={() => navigate('/admin/matches/new')}
+              className="w-8 h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-black rounded-lg transition-colors font-bold"
             >
-              {status.charAt(0).toUpperCase() + status.slice(1)} ({filteredMatches.length})
+              +
             </button>
-          ))}
+          </div>
+          <div className="flex gap-1.5">
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
+          </div>
         </div>
 
-        {/* Matches Grid */}
-        {filteredMatches.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-16">
-              <p className="text-gray-500 text-lg mb-4">No matches found</p>
-              <Link to="/admin/matches/new">
-                <Button variant="primary">Create Your First Match</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMatches.map(match => (
-              <Card key={match.id} className="animate-fade-in overflow-hidden">
-                <CardContent className="p-0">
-                  {/* Status Badge */}
-                  <div className={`${getStatusColor(match.status)} px-4 py-2 flex items-center justify-between`}>
-                    <span className="font-semibold capitalize flex items-center gap-2">
-                      {getStatusIcon(match.status)} {match.status}
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 space-y-3">
+          {/* Matches List */}
+          {matches.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="text-4xl mb-3">🏏</div>
+              <p className="text-neutral-400 mb-4">No matches found</p>
+              <button
+                onClick={() => navigate('/admin/matches/new')}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
+              >
+                Create First Match
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {matches.map(match => (
+                <button
+                  key={match.id}
+                  onClick={() => {
+                    if (match.status === 'pending') {
+                      navigate(`/admin/matches/${match.id}/teams`);
+                    } else if (match.status === 'live') {
+                      navigate(`/scoring/${match.id}`);
+                    }
+                  }}
+                  className="w-full text-left bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-amber-500 hover:bg-neutral-800 transition-all active:scale-95"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="font-semibold text-white">{match.venue || 'Cricket Match'}</h3>
+                      <div className="text-xs text-neutral-500 mt-1">
+                        📅 {formatDate(match.date)} · 🏏 {match.overs} overs
+                      </div>
+                    </div>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                      match.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                      match.status === 'live' ? 'bg-green-500/20 text-green-400' :
+                      'bg-neutral-700/50 text-neutral-400'
+                    }`}>
+                      {match.status === 'pending' ? '⏳ Pending' :
+                       match.status === 'live' ? '🔴 Live' :
+                       '✓ Completed'}
                     </span>
                   </div>
-
-                  {/* Content */}
-                  <div className="p-6">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{match.venue || 'Cricket Match'}</h3>
-                    
-                    <div className="space-y-2 mb-6 text-gray-600">
-                      <p className="flex items-center gap-2">
-                        📅 {formatDate(match.date)}
-                      </p>
-                      <p className="flex items-center gap-2">
-                        🏏 {match.overs} Overs
-                      </p>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      {match.status === 'pending' && (
-                        <Link to={`/admin/matches/${match.id}/teams`} className="flex-1">
-                          <Button variant="primary" size="sm" className="w-full">
-                            Setup Match
-                          </Button>
-                        </Link>
-                      )}
-                      {match.status === 'live' && (
-                        <Link to={`/scoring/${match.id}`} className="flex-1">
-                          <Button variant="primary" size="sm" className="w-full">
-                            Go to Scoring
-                          </Button>
-                        </Link>
-                      )}
-                      {match.status === 'completed' && (
-                        <Link to={`/matches/${match.id}/summary`} className="flex-1">
-                          <Button variant="secondary" size="sm" className="w-full">
-                            View Summary
-                          </Button>
-                        </Link>
-                      )}
-                    </div>
+                  <div className="text-xs text-neutral-400">
+                    {match.status === 'pending' && 'Tap to select teams'}
+                    {match.status === 'live' && 'Tap to go to scoring'}
+                    {match.status === 'completed' && 'Match completed'}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 flex max-w-md mx-auto px-2 py-2 bg-neutral-950/90 backdrop-blur-lg border-t border-neutral-800 z-20">
+          {[
+            { key: 'home', label: 'Home', icon: 'home' },
+            { key: 'players', label: 'Players', icon: 'players' },
+            { key: 'matches', label: 'Matches', icon: 'matches' },
+            { key: 'stats', label: 'Stats', icon: 'stats' },
+          ].map(tab => (
+            <div
+              key={tab.key}
+              onClick={() => {
+                if (tab.key === 'home') {
+                  navigate('/');
+                } else if (tab.key === 'players') {
+                  navigate('/admin/players');
+                } else if (tab.key === 'stats') {
+                  addToast('Stats — coming soon', 'info');
+                }
+              }}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 cursor-pointer transition-transform active:scale-94 ${
+                tab.key === 'matches'
+                  ? 'text-amber-400'
+                  : 'text-neutral-600'
+              }`}
+            >
+              <div className="w-5 h-5">
+                {tab.icon === 'home' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <path d="M4 11l8-7 8 7"></path>
+                    <path d="M6 10v10h12V10"></path>
+                  </svg>
+                )}
+                {tab.icon === 'players' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <circle cx="9" cy="8" r="3.2"></circle>
+                    <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path>
+                    <circle cx="17.5" cy="9" r="2.6"></circle>
+                    <path d="M15.5 14.2c2.8.4 4.9 2.4 5 5.8"></path>
+                  </svg>
+                )}
+                {tab.icon === 'matches' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <rect x="3" y="4.5" width="18" height="16" rx="2.2"></rect>
+                    <path d="M3 9.5h18M8 3v3M16 3v3"></path>
+                  </svg>
+                )}
+                {tab.icon === 'stats' && (
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <path d="M4 20V10M12 20V4M20 20v-7"></path>
+                  </svg>
+                )}
+              </div>
+              <div className="text-xs font-semibold">{tab.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 

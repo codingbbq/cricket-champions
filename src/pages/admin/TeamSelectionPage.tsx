@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import Navigation from '@/components/common/Navigation';
 import { useToast } from '@/contexts/ToastContext';
 import type { Match, Player } from '@/types';
 
@@ -12,8 +11,7 @@ const TeamSelectionPage = () => {
   const { addToast } = useToast();
   const [match, setMatch] = useState<Match | null>(null);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
-  const [teamAPlayers, setTeamAPlayers] = useState<string[]>([]);
-  const [teamBPlayers, setTeamBPlayers] = useState<string[]>([]);
+  const [playerAssignments, setPlayerAssignments] = useState<Record<string, 'A' | 'B' | null>>({});
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -21,41 +19,60 @@ const TeamSelectionPage = () => {
     const fetchData = async () => {
       if (!matchId) return;
       setLoading(true);
-      const matchRef = doc(db, 'matches', matchId);
-      const matchSnap = await getDoc(matchRef);
-      if (matchSnap.exists()) {
-        setMatch(matchSnap.data() as Match);
-      }
+      try {
+        const matchRef = doc(db, 'matches', matchId);
+        const matchSnap = await getDoc(matchRef);
+        if (matchSnap.exists()) {
+          setMatch(matchSnap.data() as Match);
+        }
 
-      const playersSnap = await getDocs(collection(db, 'players'));
-      setAllPlayers(playersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player)));
-      setLoading(false);
+        const playersSnap = await getDocs(collection(db, 'players'));
+        const players = playersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
+        setAllPlayers(players);
+        
+        // Initialize assignments
+        const assignments: Record<string, 'A' | 'B' | null> = {};
+        players.forEach(p => {
+          assignments[p.id] = null;
+        });
+        setPlayerAssignments(assignments);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        addToast('Failed to load data', 'error');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
-  }, [matchId]);
+  }, [matchId, addToast]);
 
-  const handlePlayerSelection = (playerId: string, team: 'A' | 'B') => {
-    const otherTeamPlayers = team === 'A' ? teamBPlayers : teamAPlayers;
-    if (otherTeamPlayers.includes(playerId)) return; // Player already in other team
-
-    const currentTeamPlayers = team === 'A' ? teamAPlayers : teamBPlayers;
-    const setter = team === 'A' ? setTeamAPlayers : setTeamBPlayers;
-
-    if (currentTeamPlayers.includes(playerId)) {
-      setter(currentTeamPlayers.filter(id => id !== playerId));
-    } else {
-      setter([...currentTeamPlayers, playerId]);
-    }
+  const cyclePlayerTeam = (playerId: string) => {
+    setPlayerAssignments(prev => {
+      const current = prev[playerId];
+      const next = current === 'A' ? 'B' : current === 'B' ? null : 'A';
+      return { ...prev, [playerId]: next };
+    });
   };
 
+  const teamACount = Object.values(playerAssignments).filter(t => t === 'A').length;
+  const teamBCount = Object.values(playerAssignments).filter(t => t === 'B').length;
+
   const handleSaveTeams = async () => {
-    if (!matchId || teamAPlayers.length === 0 || teamBPlayers.length === 0) {
+    if (!matchId || teamACount === 0 || teamBCount === 0) {
       addToast('Please select players for both teams', 'warning');
       return;
     }
 
     try {
       setIsSaving(true);
+
+      const teamAPlayers = Object.entries(playerAssignments)
+        .filter(([_, team]) => team === 'A')
+        .map(([id]) => id);
+
+      const teamBPlayers = Object.entries(playerAssignments)
+        .filter(([_, team]) => team === 'B')
+        .map(([id]) => id);
 
       // Create team documents in subcollection
       const teamARef = doc(collection(db, `matches/${matchId}/teams`), 'teamA');
@@ -85,72 +102,85 @@ const TeamSelectionPage = () => {
 
   if (loading) {
     return (
-      <>
-        <Navigation />
-        <div className="container-responsive py-12">
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin text-4xl mb-4">⏳</div>
-              <p className="text-gray-600">Loading match data...</p>
-            </div>
-          </div>
+      <div className="min-h-screen bg-neutral-950 text-white flex justify-center items-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⏳</div>
+          <p className="text-neutral-400">Loading players...</p>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <Navigation />
-      <div className="container-responsive py-10">
-        <h1 className="text-3xl font-bold mb-6">Select Teams for {match?.venue}</h1>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1">
-            <h2 className="text-xl font-bold mb-4">Available Players</h2>
-            <div className="space-y-2 p-4 bg-white rounded-lg shadow-md">
-              {allPlayers.map(player => (
-                <div key={player.id} className="flex items-center justify-between">
-                  <span>{player.name}</span>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handlePlayerSelection(player.id, 'A')}
-                      className={`px-2 py-1 text-xs rounded ${teamAPlayers.includes(player.id) ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>
-                      Team A
-                    </button>
-                    <button 
-                      onClick={() => handlePlayerSelection(player.id, 'B')}
-                      className={`px-2 py-1 text-xs rounded ${teamBPlayers.includes(player.id) ? 'bg-green-500 text-white' : 'bg-gray-200'}`}>
-                      Team B
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
+      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950">
+        {/* Header */}
+        <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              onClick={() => navigate(`/admin/matches/${matchId}`)}
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M15 18l-6-6 6-6"></path>
+              </svg>
+            </button>
+            <div className="text-base font-semibold">Select Teams</div>
           </div>
-          <div className="md:col-span-1">
-            <h2 className="text-xl font-bold mb-4">Team A</h2>
-            <div className="p-4 bg-white rounded-lg shadow-md min-h-[200px]">
-              {allPlayers.filter(p => teamAPlayers.includes(p.id)).map(p => <div key={p.id}>{p.name}</div>)}
-            </div>
-          </div>
-          <div className="md:col-span-1">
-            <h2 className="text-xl font-bold mb-4">Team B</h2>
-            <div className="p-4 bg-white rounded-lg shadow-md min-h-[200px]">
-              {allPlayers.filter(p => teamBPlayers.includes(p.id)).map(p => <div key={p.id}>{p.name}</div>)}
-            </div>
+          <div className="flex gap-1.5 pl-11">
+            <div className="w-[26px] h-[3px] rounded-sm bg-amber-400"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
+            <div className="w-[26px] h-[3px] rounded-sm bg-neutral-700"></div>
           </div>
         </div>
-        <div className="mt-8 flex justify-end">
-          <button 
-            onClick={handleSaveTeams} 
-            disabled={teamAPlayers.length < 1 || teamBPlayers.length < 1 || isSaving} 
-            className="px-6 py-3 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {isSaving ? 'Saving...' : 'Save Teams & Proceed to Toss'}
-          </button>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto px-4 py-6 pb-8">
+          <div className="space-y-4 animate-in fade-in">
+            <div className="text-xs text-neutral-400 mb-4">Tap a player to cycle Team A → Team B → unassigned</div>
+
+            <div className="space-y-2">
+              {allPlayers.map(player => {
+                const team = playerAssignments[player.id];
+                const teamLabel = team === 'A' ? 'Team A' : team === 'B' ? 'Team B' : 'Unassigned';
+                const tagClass = team === 'A' ? 'bg-amber-500/20 text-amber-400' : team === 'B' ? 'bg-blue-500/20 text-blue-400' : 'bg-neutral-700/50 text-neutral-400';
+                const borderColor = team ? 'border-neutral-700' : 'border-transparent';
+
+                return (
+                  <button
+                    key={player.id}
+                    onClick={() => cyclePlayerTeam(player.id)}
+                    className={`w-full flex items-center justify-between p-3 bg-neutral-900 rounded-lg border transition-all hover:bg-neutral-800 active:scale-95 ${borderColor}`}
+                  >
+                    <div className="text-left">
+                      <div className="text-sm font-medium">{player.name}</div>
+                      <div className="text-xs text-neutral-500 capitalize mt-0.5">{player.role}</div>
+                    </div>
+                    <span className={`text-xs font-semibold px-2 py-1 rounded ${tagClass}`}>
+                      {teamLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-4 text-xs text-neutral-400 pt-2">
+              <div>Team A: {teamACount}</div>
+              <div>Team B: {teamBCount}</div>
+            </div>
+
+            <button
+              onClick={handleSaveTeams}
+              disabled={teamACount === 0 || teamBCount === 0 || isSaving}
+              className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            >
+              {isSaving ? 'Saving...' : 'Save Teams & Proceed to Toss'}
+            </button>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
