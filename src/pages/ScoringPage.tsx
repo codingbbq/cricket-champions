@@ -25,11 +25,11 @@ const ScoringPage = () => {
   const [currentInnings, setCurrentInnings] = useState<Innings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showStrikerDropdown, setShowStrikerDropdown] = useState(false);
-  const [showNonStrikerDropdown, setShowNonStrikerDropdown] = useState(false);
-  const [showBowlerDropdown, setShowBowlerDropdown] = useState(false);
   const [showNoBallPopup, setShowNoBallPopup] = useState(false);
   const [noBallRuns, setNoBallRuns] = useState(0);
+  const [showStrikerPopup, setShowStrikerPopup] = useState(false);
+  const [showNonStrikerPopup, setShowNonStrikerPopup] = useState(false);
+  const [showBowlerPopup, setShowBowlerPopup] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -139,7 +139,12 @@ const ScoringPage = () => {
     if (matchId) {
       const batch = writeBatch(db);
       const inningsRef = doc(db, `matches/${matchId}/innings`, updatedInnings.id);
-      batch.set(inningsRef, updatedInnings);
+      // Ensure teamId is included in the saved data
+      const inningsToSave = {
+        ...updatedInnings,
+        teamId: updatedInnings.teamId || updatedInnings.id,
+      };
+      batch.set(inningsRef, inningsToSave);
       batch.commit().catch(err => console.error("Failed to save innings: ", err));
     }
   };
@@ -301,7 +306,25 @@ const ScoringPage = () => {
   };
 
   if (matchWinner) {
-    return <MatchSummary winnerName={matchWinner.name} margin={winMargin} />;
+    return (
+      <div className="min-h-screen bg-neutral-950 text-white flex justify-center items-center">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-neutral-900 rounded-xl p-8 max-w-sm mx-4 space-y-6 text-center">
+            <div className="text-5xl">🏆</div>
+            <div>
+              <h2 className="text-2xl font-bold mb-2">{matchWinner.name}</h2>
+              <p className="text-neutral-400">Won by {winMargin}</p>
+            </div>
+            <button
+              onClick={() => navigate(`/match/${matchId}`)}
+              className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
+            >
+              View Match Summary
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
@@ -374,122 +397,91 @@ const ScoringPage = () => {
             <div className="text-xs text-neutral-500">{oversLabel} overs · RR {runRate}</div>
           </div>
 
-          {/* Batsmen Info */}
+          {/* Batsmen Info - Professional Card View */}
           <div className="flex gap-3">
-            <div className="flex-1 relative">
+            <div className="flex-1">
               <button
-                onClick={() => setShowStrikerDropdown(!showStrikerDropdown)}
-                className={`w-full bg-neutral-900 rounded-lg p-3 border text-left transition-colors ${striker ? 'border-amber-500' : 'border-neutral-800 hover:border-neutral-700'}`}
+                onClick={() => setShowStrikerPopup(true)}
+                disabled={matchWinner !== null}
+                className={`w-full bg-gradient-to-br from-amber-900/30 to-amber-950/50 rounded-xl p-4 border-2 transition-all transform hover:scale-105 ${striker ? 'border-amber-400 shadow-lg shadow-amber-500/20' : 'border-amber-700/50 hover:border-amber-600'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 text-sm font-medium mb-1">
-                      {striker?.name || 'Select Striker'}
-                      {striker && <span className="text-amber-400">●</span>}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🏏</span>
+                    <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Striker</span>
+                  </div>
+                  <div className="text-lg font-bold text-white">{striker?.name || 'Select Player'}</div>
+                  {striker && (
+                    <div className="flex gap-4 text-xs">
+                      <div className="bg-amber-500/20 rounded px-2 py-1">
+                        <span className="text-amber-300 font-semibold">{currentInnings.balls.filter(b => b.strikerId === striker.id).reduce((sum, b) => sum + b.runs, 0)}</span>
+                        <span className="text-neutral-400"> runs</span>
+                      </div>
+                      <div className="bg-neutral-700/50 rounded px-2 py-1">
+                        <span className="text-neutral-300">{currentInnings.balls.filter(b => b.strikerId === striker.id).length}</span>
+                        <span className="text-neutral-500"> balls</span>
+                      </div>
                     </div>
-                    {striker && (
-                      <div className="text-xs text-neutral-500">
-                        {currentInnings.balls.filter(b => b.strikerId === striker.id).reduce((sum, b) => sum + b.runs, 0)} (
-                        {currentInnings.balls.filter(b => b.strikerId === striker.id).length})
-                      </div>
-                    )}
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showStrikerDropdown ? 'rotate-180' : ''}`}>
-                    <path d="M6 9l6 6 6-6"></path>
-                  </svg>
+                  )}
                 </div>
               </button>
-              {showStrikerDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg z-10 max-h-48 overflow-y-auto">
-                  {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== nonStriker?.id)).map(player => (
-                    <button
-                      key={player.id}
-                      onClick={() => {
-                        setStriker(player);
-                        setShowStrikerDropdown(false);
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-neutral-700 text-sm transition-colors border-b border-neutral-700 last:border-b-0"
-                    >
-                      {player.name}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-            <div className="flex-1 relative">
+            <div className="flex-1">
               <button
-                onClick={() => setShowNonStrikerDropdown(!showNonStrikerDropdown)}
-                className="w-full bg-neutral-900 rounded-lg p-3 border border-neutral-800 hover:border-neutral-700 text-left transition-colors"
+                onClick={() => setShowNonStrikerPopup(true)}
+                disabled={matchWinner !== null}
+                className={`w-full bg-gradient-to-br from-blue-900/30 to-blue-950/50 rounded-xl p-4 border-2 transition-all transform hover:scale-105 ${nonStriker ? 'border-blue-400 shadow-lg shadow-blue-500/20' : 'border-blue-700/50 hover:border-blue-600'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium mb-1">{nonStriker?.name || 'Select Non-Striker'}</div>
-                    {nonStriker && (
-                      <div className="text-xs text-neutral-500">
-                        {currentInnings.balls.filter(b => b.strikerId === nonStriker.id).reduce((sum, b) => sum + b.runs, 0)} (
-                        {currentInnings.balls.filter(b => b.strikerId === nonStriker.id).length})
-                      </div>
-                    )}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🏃</span>
+                    <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Non-Striker</span>
                   </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showNonStrikerDropdown ? 'rotate-180' : ''}`}>
-                    <path d="M6 9l6 6 6-6"></path>
-                  </svg>
+                  <div className="text-lg font-bold text-white">{nonStriker?.name || 'Select Player'}</div>
+                  {nonStriker && (
+                    <div className="flex gap-4 text-xs">
+                      <div className="bg-blue-500/20 rounded px-2 py-1">
+                        <span className="text-blue-300 font-semibold">{currentInnings.balls.filter(b => b.strikerId === nonStriker.id).reduce((sum, b) => sum + b.runs, 0)}</span>
+                        <span className="text-neutral-400"> runs</span>
+                      </div>
+                      <div className="bg-neutral-700/50 rounded px-2 py-1">
+                        <span className="text-neutral-300">{currentInnings.balls.filter(b => b.strikerId === nonStriker.id).length}</span>
+                        <span className="text-neutral-500"> balls</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </button>
-              {showNonStrikerDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg z-10 max-h-48 overflow-y-auto">
-                  {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== striker?.id)).map(player => (
-                    <button
-                      key={player.id}
-                      onClick={() => {
-                        setNonStriker(player);
-                        setShowNonStrikerDropdown(false);
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-neutral-700 text-sm transition-colors border-b border-neutral-700 last:border-b-0"
-                    >
-                      {player.name}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Bowler Info */}
-          <div className="relative">
+          {/* Bowler Info - Professional Card View */}
+          <div>
             <button
-              onClick={() => setShowBowlerDropdown(!showBowlerDropdown)}
-              className="w-full bg-neutral-900 rounded-lg p-3 flex items-center justify-between border border-neutral-800 hover:border-neutral-700 text-left transition-colors"
+              onClick={() => setShowBowlerPopup(true)}
+              disabled={matchWinner !== null}
+              className={`w-full bg-gradient-to-br from-red-900/30 to-red-950/50 rounded-xl p-4 border-2 transition-all transform hover:scale-105 ${bowler ? 'border-red-400 shadow-lg shadow-red-500/20' : 'border-red-700/50 hover:border-red-600'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
-              <div>
-                <div className="text-sm font-medium">🎯 {bowler?.name || 'Select Bowler'}</div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🎯</span>
+                  <span className="text-xs font-bold text-red-300 uppercase tracking-wider">Bowler</span>
+                </div>
+                <div className="text-lg font-bold text-white">{bowler?.name || 'Select Player'}</div>
                 {bowler && (
-                  <div className="text-xs text-neutral-500 mt-1">
-                    {currentInnings.balls.filter(b => b.bowlerId === bowler.id).reduce((sum, b) => sum + b.runs, 0)}/
-                    {currentInnings.balls.filter(b => b.bowlerId === bowler.id && !b.isExtra).length}
+                  <div className="flex gap-4 text-xs">
+                    <div className="bg-red-500/20 rounded px-2 py-1">
+                      <span className="text-red-300 font-semibold">{currentInnings.balls.filter(b => b.bowlerId === bowler.id).reduce((sum, b) => sum + b.runs, 0)}</span>
+                      <span className="text-neutral-400"> runs</span>
+                    </div>
+                    <div className="bg-neutral-700/50 rounded px-2 py-1">
+                      <span className="text-neutral-300">{currentInnings.balls.filter(b => b.bowlerId === bowler.id && !b.isExtra).length}</span>
+                      <span className="text-neutral-500"> balls</span>
+                    </div>
                   </div>
                 )}
               </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${showBowlerDropdown ? 'rotate-180' : ''}`}>
-                <path d="M6 9l6 6 6-6"></path>
-              </svg>
             </button>
-            {showBowlerDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg z-10 max-h-48 overflow-y-auto">
-                {players.filter(p => bowlingTeam.players.includes(p.id)).map(player => (
-                  <button
-                    key={player.id}
-                    onClick={() => {
-                      setBowler(player);
-                      setShowBowlerDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-neutral-700 text-sm transition-colors border-b border-neutral-700 last:border-b-0"
-                  >
-                    {player.name}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Recent Over */}
@@ -616,6 +608,141 @@ const ScoringPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Striker Selection Popup */}
+        {showStrikerPopup && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-gradient-to-b from-amber-950 to-neutral-900 rounded-2xl p-6 max-w-sm mx-4 space-y-4 border-2 border-amber-600 shadow-2xl shadow-amber-500/30">
+              <div className="space-y-3 pb-4 border-b-2 border-amber-600">
+                <div className="flex items-center gap-3">
+                  <div className="text-5xl">🏏</div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-amber-300">{battingTeam.name}</h3>
+                    <p className="text-sm text-amber-200 font-semibold uppercase tracking-wider">Select Striker</p>
+                  </div>
+                </div>
+                <div className="h-1 bg-gradient-to-r from-amber-500 to-transparent rounded-full"></div>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== nonStriker?.id)).map(player => (
+                  <button
+                    key={player.id}
+                    onClick={() => {
+                      setStriker(player);
+                      setShowStrikerPopup(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${
+                      striker?.id === player.id
+                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold border-amber-300 shadow-lg shadow-amber-500/50'
+                        : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700 hover:border-amber-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{player.name}</span>
+                      {striker?.id === player.id && <span className="text-lg">✓</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowStrikerPopup(false)}
+                className="w-full px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors border border-neutral-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Non-Striker Selection Popup */}
+        {showNonStrikerPopup && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-gradient-to-b from-blue-950 to-neutral-900 rounded-2xl p-6 max-w-sm mx-4 space-y-4 border-2 border-blue-600 shadow-2xl shadow-blue-500/30">
+              <div className="space-y-3 pb-4 border-b-2 border-blue-600">
+                <div className="flex items-center gap-3">
+                  <div className="text-5xl">�</div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-blue-300">{battingTeam.name}</h3>
+                    <p className="text-sm text-blue-200 font-semibold uppercase tracking-wider">Select Non-Striker</p>
+                  </div>
+                </div>
+                <div className="h-1 bg-gradient-to-r from-blue-500 to-transparent rounded-full"></div>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== striker?.id)).map(player => (
+                  <button
+                    key={player.id}
+                    onClick={() => {
+                      setNonStriker(player);
+                      setShowNonStrikerPopup(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${
+                      nonStriker?.id === player.id
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold border-blue-300 shadow-lg shadow-blue-500/50'
+                        : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700 hover:border-blue-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{player.name}</span>
+                      {nonStriker?.id === player.id && <span className="text-lg">✓</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowNonStrikerPopup(false)}
+                className="w-full px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors border border-neutral-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bowler Selection Popup */}
+        {showBowlerPopup && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-gradient-to-b from-red-950 to-neutral-900 rounded-2xl p-6 max-w-sm mx-4 space-y-4 border-2 border-red-600 shadow-2xl shadow-red-500/30">
+              <div className="space-y-3 pb-4 border-b-2 border-red-600">
+                <div className="flex items-center gap-3">
+                  <div className="text-5xl">🎯</div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-red-300">{bowlingTeam.name}</h3>
+                    <p className="text-sm text-red-200 font-semibold uppercase tracking-wider">Select Bowler</p>
+                  </div>
+                </div>
+                <div className="h-1 bg-gradient-to-r from-red-500 to-transparent rounded-full"></div>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {players.filter(p => bowlingTeam.players.includes(p.id)).map(player => (
+                  <button
+                    key={player.id}
+                    onClick={() => {
+                      setBowler(player);
+                      setShowBowlerPopup(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${
+                      bowler?.id === player.id
+                        ? 'bg-gradient-to-r from-red-500 to-red-600 text-white font-bold border-red-300 shadow-lg shadow-red-500/50'
+                        : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700 hover:border-red-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{player.name}</span>
+                      {bowler?.id === player.id && <span className="text-lg">✓</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowBowlerPopup(false)}
+                className="w-full px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors border border-neutral-700"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* No-Ball Popup */}
         {showNoBallPopup && (

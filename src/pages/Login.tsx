@@ -16,7 +16,7 @@ const LoginPage = () => {
     setError(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/admin');
+      navigate('/');
     } catch (err) {
       setError('Failed to sign in. Please check your credentials.');
     } finally {
@@ -25,37 +25,37 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Admin Login</h1>
-          <p className="text-gray-500">Enter your credentials to access the dashboard.</p>
+    <div className="min-h-screen flex items-center justify-center bg-neutral-950">
+      <div className="w-full max-w-sm p-8 space-y-6 bg-neutral-900 rounded-xl border border-neutral-800 shadow-2xl">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-bold text-white">Admin Login</h1>
+          <p className="text-neutral-400">Enter your credentials to access Cricket Champions.</p>
         </div>
-        <form onSubmit={handleLogin} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-700">Email</label>
+            <label htmlFor="email" className="block mb-2 text-sm font-medium text-neutral-300">Email</label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-indigo-200"
+              className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
               required
             />
           </div>
           <div>
-            <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-700">Password</label>
+            <label htmlFor="password" className="block mb-2 text-sm font-medium text-neutral-300">Password</label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-indigo-200"
+              className="w-full px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
               required
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={loading} className="w-full px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50">
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <button type="submit" disabled={loading} className="w-full px-4 py-2 text-black bg-amber-500 hover:bg-amber-600 font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
+import BottomNavigation from '@/components/common/BottomNavigation';
 import type { Match } from '@/types';
 
 const MatchesPage = () => {
@@ -175,61 +176,7 @@ const MatchesPage = () => {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 flex max-w-md mx-auto px-2 py-2 bg-neutral-950/90 backdrop-blur-lg border-t border-neutral-800 z-20">
-          {[
-            { key: 'home', label: 'Home', icon: 'home' },
-            { key: 'players', label: 'Players', icon: 'players' },
-            { key: 'matches', label: 'Matches', icon: 'matches' },
-            { key: 'stats', label: 'Stats', icon: 'stats' },
-          ].map(tab => (
-            <div
-              key={tab.key}
-              onClick={() => {
-                if (tab.key === 'home') {
-                  navigate('/');
-                } else if (tab.key === 'players') {
-                  navigate('/admin/players');
-                } else if (tab.key === 'stats') {
-                  addToast('Stats — coming soon', 'info');
-                }
-              }}
-              className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 cursor-pointer transition-transform active:scale-94 ${
-                tab.key === 'matches'
-                  ? 'text-amber-400'
-                  : 'text-neutral-600'
-              }`}
-            >
-              <div className="w-5 h-5">
-                {tab.icon === 'home' && (
-                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                    <path d="M4 11l8-7 8 7"></path>
-                    <path d="M6 10v10h12V10"></path>
-                  </svg>
-                )}
-                {tab.icon === 'players' && (
-                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                    <circle cx="9" cy="8" r="3.2"></circle>
-                    <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"></path>
-                    <circle cx="17.5" cy="9" r="2.6"></circle>
-                    <path d="M15.5 14.2c2.8.4 4.9 2.4 5 5.8"></path>
-                  </svg>
-                )}
-                {tab.icon === 'matches' && (
-                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                    <rect x="3" y="4.5" width="18" height="16" rx="2.2"></rect>
-                    <path d="M3 9.5h18M8 3v3M16 3v3"></path>
-                  </svg>
-                )}
-                {tab.icon === 'stats' && (
-                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                    <path d="M4 20V10M12 20V4M20 20v-7"></path>
-                  </svg>
-                )}
-              </div>
-              <div className="text-xs font-semibold">{tab.label}</div>
-            </div>
-          ))}
-        </div>
+        <BottomNavigation currentPath="/admin/matches" />
       </div>
     </div>
   );

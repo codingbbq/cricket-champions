@@ -57,4 +57,5 @@ export interface Match {
     choice: 'bat' | 'bowl';
   };
   innings?: Innings[];
+  youtubeEmbedId?: string; // YouTube embed ID for match video
 }
