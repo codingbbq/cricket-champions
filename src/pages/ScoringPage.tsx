@@ -92,7 +92,7 @@ const ScoringPage = () => {
           const bowlingFirstTeam = isBatting ? otherTeam : tossWinner;
 
           console.log('Teams loaded:', { battingFirstTeam, bowlingFirstTeam });
-          
+
           if (isMounted) {
             setBattingTeam(battingFirstTeam);
             setBowlingTeam(bowlingFirstTeam);
@@ -105,9 +105,17 @@ const ScoringPage = () => {
             const newInnings: Innings = { id: battingFirstTeam.id, teamId: battingFirstTeam.id, score: 0, wickets: 0, overs: 0, balls: [] };
             if (isMounted) setCurrentInnings(newInnings);
           } else {
-            const inningsData = inningsSnap.docs[0].data() as Innings;
-            inningsData.id = inningsSnap.docs[0].id;
+            // Load the latest innings (last one added, which is the current one being played)
+            const inningsData = inningsSnap.docs[inningsSnap.docs.length - 1].data() as Innings;
+            inningsData.id = inningsSnap.docs[inningsSnap.docs.length - 1].id;
             if (isMounted) setCurrentInnings(inningsData);
+            
+            // If there's a first innings, set it
+            if (inningsSnap.docs.length > 1) {
+              const firstInningsData = inningsSnap.docs[0].data() as Innings;
+              firstInningsData.id = inningsSnap.docs[0].id;
+              if (isMounted) setFirstInnings(firstInningsData);
+            }
           }
         })();
 
@@ -149,13 +157,27 @@ const ScoringPage = () => {
     }
   };
 
-  const handleInningsEnd = () => {
+  const handleInningsEnd = (completedInnings?: Innings) => {
     if (!currentInnings || !battingTeam || !bowlingTeam) return;
 
-    setFirstInnings(currentInnings);
+    const inningsToUse = completedInnings || currentInnings;
+
+    // Save the completed innings to Firestore before starting second innings
+    if (matchId) {
+      const batch = writeBatch(db);
+      const inningsRef = doc(db, `matches/${matchId}/innings`, inningsToUse.id);
+      const inningsToSave = {
+        ...inningsToUse,
+        teamId: inningsToUse.teamId || inningsToUse.id,
+      };
+      batch.set(inningsRef, inningsToSave);
+      batch.commit().catch(err => console.error("Failed to save first innings: ", err));
+    }
+
+    setFirstInnings(inningsToUse);
     const newInnings: Innings = { id: bowlingTeam.id, teamId: bowlingTeam.id, score: 0, wickets: 0, overs: 0, balls: [] };
     setCurrentInnings(newInnings);
-    
+
     // Swap teams
     setBattingTeam(bowlingTeam);
     setBowlingTeam(battingTeam);
@@ -170,7 +192,7 @@ const ScoringPage = () => {
     if (!currentInnings || !match) return;
 
     const newBall = { ...ball, ballNumber: currentInnings.balls.length + 1 };
-    
+
     let newScore = currentInnings.score + newBall.runs;
     let newWickets = currentInnings.wickets;
     let tempStriker = striker;
@@ -198,48 +220,81 @@ const ScoringPage = () => {
 
     const isFirstInnings = !firstInnings;
     const currentBattingTeam = isFirstInnings ? battingTeam : bowlingTeam;
-    
+
     // Defensive check: ensure we have valid team data before checking innings end
     if (!currentBattingTeam || !Array.isArray(currentBattingTeam.players)) {
       console.warn('Invalid batting team data:', currentBattingTeam);
       updateInnings({ ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs });
       return;
     }
-    
+
     const battingTeamPlayerIds = currentBattingTeam.players;
     const battingTeamPlayerCount = battingTeamPlayerIds.length;
-    
+
     // Max wickets: if lastManBatting is true, allow all players; otherwise, last man can't bat alone
     const maxWickets = match.lastManBatting ? battingTeamPlayerCount : Math.max(1, battingTeamPlayerCount - 1);
 
     // Check for innings end (all wickets lost OR all overs completed)
     const oversCompleted = match.overs && match.overs > 0 && overs >= match.overs;
     const wicketsLost = newWickets >= maxWickets;
-    const inningsEnded = (wicketsLost || oversCompleted) && validBalls.length >= 6;
-    
+    // Innings ends when: (all wickets lost OR all overs completed) AND at least 1 ball has been bowled
+    const inningsEnded = (wicketsLost || oversCompleted) && validBalls.length > 0;
+
     if (inningsEnded) {
       if (isFirstInnings) {
-        handleInningsEnd();
+        // Save the completed first innings before moving to second innings
+        const completedFirstInnings = { ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs };
+        updateInnings(completedFirstInnings);
+        handleInningsEnd(completedFirstInnings);
       } else {
-        const winner = newScore > firstInnings!.score ? battingTeam : bowlingTeam;
-        const margin = newScore > firstInnings!.score 
-          ? `${maxWickets - newWickets} wickets` 
-          : `${firstInnings!.score - newScore} runs`;
-        setMatchWinner(winner);
-        setWinMargin(margin);
-        updateDoc(doc(db, 'matches', matchId!), { status: 'completed' });
+        // Only declare winner if we have valid first innings data
+        if (firstInnings && firstInnings.score !== undefined) {
+          const winner = newScore > firstInnings.score ? battingTeam : bowlingTeam;
+          const margin = newScore > firstInnings.score
+            ? `${maxWickets - newWickets} wickets`
+            : `${firstInnings.score - newScore} runs`;
+          setMatchWinner(winner);
+          setWinMargin(margin);
+
+          // Save both innings before marking match as completed
+          if (matchId) {
+            const batch = writeBatch(db);
+            const firstInningsRef = doc(db, `matches/${matchId}/innings`, firstInnings.id);
+            const secondInningsRef = doc(db, `matches/${matchId}/innings`, currentInnings.id);
+
+            batch.set(firstInningsRef, { ...firstInnings, teamId: firstInnings.teamId || firstInnings.id });
+            batch.set(secondInningsRef, { ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs, teamId: currentInnings.teamId || currentInnings.id });
+            batch.update(doc(db, 'matches', matchId), { status: 'completed' });
+
+            batch.commit().catch(err => console.error("Failed to save match completion: ", err));
+          }
+        }
+        updateInnings({ ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs });
       }
-      updateInnings({ ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs });
       return;
     }
 
     // Check if target is chased in second innings (before all overs are completed)
-    if (!isFirstInnings && newScore > firstInnings!.score) {
+    // Only end match if at least 1 over has been bowled in second innings
+    if (!isFirstInnings && firstInnings && firstInnings.score !== undefined && newScore > firstInnings.score && validBalls.length >= 6) {
       const winner = battingTeam;
       const margin = `${maxWickets - newWickets} wickets`;
       setMatchWinner(winner);
       setWinMargin(margin);
-      updateDoc(doc(db, 'matches', matchId!), { status: 'completed' });
+
+      // Save both innings before marking match as completed
+      if (matchId) {
+        const batch = writeBatch(db);
+        const firstInningsRef = doc(db, `matches/${matchId}/innings`, firstInnings.id);
+        const secondInningsRef = doc(db, `matches/${matchId}/innings`, currentInnings.id);
+
+        batch.set(firstInningsRef, { ...firstInnings, teamId: firstInnings.teamId || firstInnings.id });
+        batch.set(secondInningsRef, { ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs, teamId: currentInnings.teamId || currentInnings.id });
+        batch.update(doc(db, 'matches', matchId), { status: 'completed' });
+
+        batch.commit().catch(err => console.error("Failed to save match completion: ", err));
+      }
+
       updateInnings({ ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs });
       return;
     }
@@ -250,7 +305,7 @@ const ScoringPage = () => {
     // For normal ball: strike changes on odd runs or at end of over
     const isWide = newBall.isExtra && newBall.extraType === 'wide';
     const isNoBall = newBall.isExtra && newBall.extraType === 'no-ball';
-    
+
     if (!isWide) {
       // Check if strike should change due to odd runs
       if (runsToAdd % 2 !== 0) {
@@ -281,7 +336,7 @@ const ScoringPage = () => {
 
   const handleExtra = (extraType: 'wide' | 'no-ball') => {
     if (!striker || !bowler) return;
-    
+
     if (extraType === 'wide') {
       // Wide ball: automatically adds 1 run, no strike change
       processBall({ bowlerId: bowler.id, strikerId: striker.id, runs: 0, isExtra: true, extraType: 'wide', isWicket: false });
@@ -491,12 +546,12 @@ const ScoringPage = () => {
               {(() => {
                 // Calculate which legal ball number marks the start of current over
                 const currentOverStartLegalBall = Math.floor(validBalls.length / 6) * 6;
-                
+
                 // Find all balls that belong to the current over
                 // A ball belongs to current over if it's bowled after the start of current over
                 let legalBallCount = 0;
                 const ballsInCurrentOver: typeof currentInnings.balls = [];
-                
+
                 for (const ball of currentInnings.balls) {
                   // Count legal balls (non-wide, or no-ball which counts as legal for over completion)
                   if (!ball.isExtra || ball.extraType === 'no-ball') {
@@ -510,23 +565,22 @@ const ScoringPage = () => {
                       ballsInCurrentOver.push(ball);
                     }
                   }
-                  
+
                   // Stop if we've completed the current over (6 legal balls)
                   if (legalBallCount >= currentOverStartLegalBall + 6) {
                     break;
                   }
                 }
-                
+
                 return ballsInCurrentOver.map((ball, idx) => (
                   <div
                     key={idx}
-                    className={`w-7 h-7 rounded flex items-center justify-center text-xs font-semibold ${
-                      ball.isExtra && ball.extraType === 'wide'
+                    className={`w-7 h-7 rounded flex items-center justify-center text-xs font-semibold ${ball.isExtra && ball.extraType === 'wide'
                         ? 'bg-blue-900 text-blue-300'
                         : ball.isExtra && ball.extraType === 'no-ball'
-                        ? 'bg-orange-900 text-orange-300'
-                        : 'bg-neutral-800 text-neutral-300'
-                    }`}
+                          ? 'bg-orange-900 text-orange-300'
+                          : 'bg-neutral-800 text-neutral-300'
+                      }`}
                     title={ball.isExtra ? `${ball.extraType}` : ''}
                   >
                     {ball.isWicket ? 'W' : ball.isExtra && ball.extraType === 'wide' ? 'Wd' : ball.isExtra && ball.extraType === 'no-ball' ? 'Nb' : ball.runs}
@@ -574,12 +628,12 @@ const ScoringPage = () => {
                     const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
                     const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
                     const overBallNotation = `${overNumber}.${ballInOver}`;
-                    
+
                     // Get current time in IST
                     const now = new Date();
                     const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
                     const timeString = istTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                    
+
                     // Format runs and extras info
                     let runsInfo = '';
                     if (ball.isExtra && ball.extraType === 'wide') {
@@ -589,7 +643,7 @@ const ScoringPage = () => {
                     } else {
                       runsInfo = `${ball.runs} runs`;
                     }
-                    
+
                     return (
                       <div key={idx} className="text-sm text-neutral-300 pb-2 border-b border-neutral-800 last:border-b-0">
                         <div className="flex items-start justify-between gap-2">
@@ -612,17 +666,16 @@ const ScoringPage = () => {
         {/* Striker Selection Popup */}
         {showStrikerPopup && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-gradient-to-b from-amber-950 to-neutral-900 rounded-2xl p-6 max-w-sm mx-4 space-y-4 border-2 border-amber-600 shadow-2xl shadow-amber-500/30">
-              <div className="space-y-3 pb-4 border-b-2 border-amber-600">
-                <div className="flex items-center gap-3">
-                  <div className="text-5xl">🏏</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-amber-300">{battingTeam.name}</h3>
-                    <p className="text-sm text-amber-200 font-semibold uppercase tracking-wider">Select Striker</p>
-                  </div>
+            <div className="bg-gradient-to-b from-amber-950 to-neutral-900 rounded-2xl p-6 w-100 mx-4 space-y-4 border-2 border-amber-600 shadow-2xl shadow-amber-500/30">
+              <div className="flex items-center gap-3">
+                <div className="text-5xl">🏏</div>
+                <div>
+                  <h3 className="text-2xl font-bold text-amber-300">{battingTeam.name}</h3>
+                  <p className="text-sm text-amber-200 font-semibold uppercase tracking-wider">Select Striker</p>
                 </div>
-                <div className="h-1 bg-gradient-to-r from-amber-500 to-transparent rounded-full"></div>
               </div>
+              <div className="h-1 bg-gradient-to-r from-amber-500 to-transparent rounded-full"></div>
+
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== nonStriker?.id)).map(player => (
                   <button
@@ -631,11 +684,10 @@ const ScoringPage = () => {
                       setStriker(player);
                       setShowStrikerPopup(false);
                     }}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${
-                      striker?.id === player.id
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${striker?.id === player.id
                         ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold border-amber-300 shadow-lg shadow-amber-500/50'
                         : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700 hover:border-amber-500'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span>{player.name}</span>
@@ -657,17 +709,15 @@ const ScoringPage = () => {
         {/* Non-Striker Selection Popup */}
         {showNonStrikerPopup && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-gradient-to-b from-blue-950 to-neutral-900 rounded-2xl p-6 max-w-sm mx-4 space-y-4 border-2 border-blue-600 shadow-2xl shadow-blue-500/30">
-              <div className="space-y-3 pb-4 border-b-2 border-blue-600">
-                <div className="flex items-center gap-3">
-                  <div className="text-5xl">�</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-blue-300">{battingTeam.name}</h3>
-                    <p className="text-sm text-blue-200 font-semibold uppercase tracking-wider">Select Non-Striker</p>
-                  </div>
+            <div className="bg-gradient-to-b from-blue-950 to-neutral-900 rounded-2xl p-6 w-100 mx-4 space-y-4 border-2 border-blue-600 shadow-2xl shadow-blue-500/30">
+              <div className="flex items-center gap-3">
+                <div className="text-5xl">🏏</div>
+                <div>
+                  <h3 className="text-2xl font-bold text-blue-300">{battingTeam.name}</h3>
+                  <p className="text-sm text-blue-200 font-semibold uppercase tracking-wider">Select Non-Striker</p>
                 </div>
-                <div className="h-1 bg-gradient-to-r from-blue-500 to-transparent rounded-full"></div>
               </div>
+              <div className="h-1 bg-gradient-to-r from-blue-500 to-transparent rounded-full"></div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {players.filter(p => battingTeam.players.includes(p.id) && (battingTeam.players.length === 1 || p.id !== striker?.id)).map(player => (
                   <button
@@ -676,11 +726,10 @@ const ScoringPage = () => {
                       setNonStriker(player);
                       setShowNonStrikerPopup(false);
                     }}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${
-                      nonStriker?.id === player.id
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${nonStriker?.id === player.id
                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold border-blue-300 shadow-lg shadow-blue-500/50'
                         : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700 hover:border-blue-500'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span>{player.name}</span>
@@ -702,17 +751,15 @@ const ScoringPage = () => {
         {/* Bowler Selection Popup */}
         {showBowlerPopup && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-gradient-to-b from-red-950 to-neutral-900 rounded-2xl p-6 max-w-sm mx-4 space-y-4 border-2 border-red-600 shadow-2xl shadow-red-500/30">
-              <div className="space-y-3 pb-4 border-b-2 border-red-600">
-                <div className="flex items-center gap-3">
-                  <div className="text-5xl">🎯</div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-red-300">{bowlingTeam.name}</h3>
-                    <p className="text-sm text-red-200 font-semibold uppercase tracking-wider">Select Bowler</p>
-                  </div>
+            <div className="bg-gradient-to-b from-red-950 to-neutral-900 rounded-2xl p-6 w-100 mx-4 space-y-4 border-2 border-red-600 shadow-2xl shadow-red-500/30">
+              <div className="flex items-center gap-3">
+                <div className="text-5xl">🎯</div>
+                <div>
+                  <h3 className="text-2xl font-bold text-red-300">{bowlingTeam.name}</h3>
+                  <p className="text-sm text-red-200 font-semibold uppercase tracking-wider">Select Bowler</p>
                 </div>
-                <div className="h-1 bg-gradient-to-r from-red-500 to-transparent rounded-full"></div>
               </div>
+              <div className="h-1 bg-gradient-to-r from-red-500 to-transparent rounded-full"></div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {players.filter(p => bowlingTeam.players.includes(p.id)).map(player => (
                   <button
@@ -721,11 +768,10 @@ const ScoringPage = () => {
                       setBowler(player);
                       setShowBowlerPopup(false);
                     }}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${
-                      bowler?.id === player.id
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-105 border-2 ${bowler?.id === player.id
                         ? 'bg-gradient-to-r from-red-500 to-red-600 text-white font-bold border-red-300 shadow-lg shadow-red-500/50'
                         : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700 hover:border-red-500'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span>{player.name}</span>
@@ -750,17 +796,16 @@ const ScoringPage = () => {
             <div className="bg-neutral-900 rounded-lg p-6 max-w-sm mx-4 space-y-4">
               <h3 className="text-lg font-semibold text-white">No-Ball Extra Runs</h3>
               <p className="text-sm text-neutral-400">Select the runs scored on this no-ball (1 + batsman runs)</p>
-              
+
               <div className="grid grid-cols-4 gap-2">
                 {[0, 1, 2, 3, 4, 5, 6].map(runs => (
                   <button
                     key={runs}
                     onClick={() => setNoBallRuns(runs)}
-                    className={`py-2 rounded font-semibold transition-colors ${
-                      noBallRuns === runs
+                    className={`py-2 rounded font-semibold transition-colors ${noBallRuns === runs
                         ? 'bg-amber-500 text-black'
                         : 'bg-neutral-800 text-white hover:bg-neutral-700'
-                    }`}
+                      }`}
                   >
                     {runs}
                   </button>

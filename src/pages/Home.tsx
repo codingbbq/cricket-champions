@@ -178,16 +178,16 @@ const HomePage = () => {
                     {hasScore && (
                       <div className="flex items-center justify-between gap-3 mb-3">
                         <div className="flex-1">
-                          <div className="text-sm font-medium">Team A</div>
+                          <div className="text-sm font-medium">{match.teams ? Object.values(match.teams)[0]?.name : 'Team A'}</div>
                           <div className="text-2xl font-bold mt-1">
-                            0/0 <span className="text-xs font-normal text-neutral-500">(0.0)</span>
+                            {match.innings && match.innings[0] ? `${match.innings[0].score}/${match.innings[0].wickets}` : '0/0'} <span className="text-xs font-normal text-neutral-500">({match.innings && match.innings[0] ? (match.innings[0].overs || 0) : '0.0'})</span>
                           </div>
                         </div>
                         <div className="text-xs text-neutral-600 font-semibold">VS</div>
                         <div className="flex-1 text-right">
-                          <div className="text-sm font-medium">Team B</div>
+                          <div className="text-sm font-medium">{match.teams ? Object.values(match.teams)[1]?.name : 'Team B'}</div>
                           <div className="text-2xl font-bold mt-1">
-                            0/0 <span className="text-xs font-normal text-neutral-500">(0.0)</span>
+                            {match.innings && match.innings[1] ? `${match.innings[1].score}/${match.innings[1].wickets}` : '0/0'} <span className="text-xs font-normal text-neutral-500">({match.innings && match.innings[1] ? (match.innings[1].overs || 0) : '0.0'})</span>
                           </div>
                         </div>
                       </div>
