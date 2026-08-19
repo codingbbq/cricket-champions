@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
-import BottomNavigation from '@/components/common/BottomNavigation';
 import type { Player } from '@/types';
 
 const PlayersPage = () => {
@@ -19,6 +18,7 @@ const PlayersPage = () => {
   const [isUpdatingPlayer, setIsUpdatingPlayer] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,7 +57,7 @@ const PlayersPage = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [addToast]);
 
   const handleAddPlayer = async () => {
     if (newPlayerName.trim() === '') {
@@ -155,9 +155,26 @@ const PlayersPage = () => {
       .toUpperCase();
   };
 
+  const getStatistics = () => {
+    return {
+      total: players.length,
+      batsman: players.filter(p => p.role === 'batsman').length,
+      bowler: players.filter(p => p.role === 'bowler').length,
+      allRounder: players.filter(p => p.role === 'all-rounder').length,
+      wicketKeeper: players.filter(p => p.role === 'wicket-keeper').length,
+    };
+  };
+
+  const getFilteredPlayers = () => {
+    if (!selectedRole) return players;
+    return players.filter(p => p.role === selectedRole);
+  };
+
+  const stats = getStatistics();
+  const filteredPlayers = getFilteredPlayers();
+
   return (
-    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
-      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950">
+    <div className="w-full flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
           <div className="flex items-center gap-3">
@@ -182,48 +199,120 @@ const PlayersPage = () => {
               <div className="text-neutral-500 text-center">No players yet. Add your first player below!</div>
             </div>
           ) : (
-            players.map((player, index) => (
-              <div
-                key={player.id}
-                className="bg-neutral-900 rounded-lg p-4 animate-in fade-in"
-                style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center font-semibold text-sm border border-neutral-700">
-                    {getPlayerInitials(player.name)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-sm">{player.name}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getRoleColor(player.role)}`}>
-                        {player.role.charAt(0).toUpperCase() + player.role.slice(1)}
-                      </span>
-                      {player.active && (
-                        <span className="text-xs text-green-400">Active</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
+            <>
+              {/* Statistics Card */}
+              <div className="bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-lg p-4 border border-neutral-700">
+                <div className="text-xs font-semibold text-neutral-400 mb-3">PLAYER STATISTICS</div>
+                <div className="grid grid-cols-5 gap-2">
                   <button
-                    onClick={() => {
-                      setEditingPlayer({ ...player });
-                      setIsModalOpen(true);
-                    }}
-                    className="flex-1 px-3 py-2 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 rounded transition-colors"
+                    onClick={() => setSelectedRole(null)}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                      selectedRole === null
+                        ? 'bg-amber-500/20 border border-amber-500 text-amber-400'
+                        : 'bg-neutral-700/50 border border-neutral-700 text-neutral-400 hover:border-amber-500/50'
+                    }`}
                   >
-                    Edit
+                    <div className="text-lg font-bold">{stats.total}</div>
+                    <div className="text-xs text-center">All</div>
                   </button>
                   <button
-                    onClick={() => handleDeletePlayer(player.id)}
-                    disabled={isDeletingId === player.id}
-                    className="flex-1 px-3 py-2 text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors disabled:opacity-50"
+                    onClick={() => setSelectedRole('batsman')}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                      selectedRole === 'batsman'
+                        ? 'bg-blue-500/20 border border-blue-500 text-blue-400'
+                        : 'bg-neutral-700/50 border border-neutral-700 text-neutral-400 hover:border-blue-500/50'
+                    }`}
                   >
-                    {isDeletingId === player.id ? 'Deleting...' : 'Delete'}
+                    <div className="text-lg font-bold">{stats.batsman}</div>
+                    <div className="text-xs text-center">Batsman</div>
+                  </button>
+                  <button
+                    onClick={() => setSelectedRole('bowler')}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                      selectedRole === 'bowler'
+                        ? 'bg-red-500/20 border border-red-500 text-red-400'
+                        : 'bg-neutral-700/50 border border-neutral-700 text-neutral-400 hover:border-red-500/50'
+                    }`}
+                  >
+                    <div className="text-lg font-bold">{stats.bowler}</div>
+                    <div className="text-xs text-center">Bowler</div>
+                  </button>
+                  <button
+                    onClick={() => setSelectedRole('all-rounder')}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                      selectedRole === 'all-rounder'
+                        ? 'bg-purple-500/20 border border-purple-500 text-purple-400'
+                        : 'bg-neutral-700/50 border border-neutral-700 text-neutral-400 hover:border-purple-500/50'
+                    }`}
+                  >
+                    <div className="text-lg font-bold">{stats.allRounder}</div>
+                    <div className="text-xs text-center">All-rounder</div>
+                  </button>
+                  <button
+                    onClick={() => setSelectedRole('wicket-keeper')}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                      selectedRole === 'wicket-keeper'
+                        ? 'bg-green-500/20 border border-green-500 text-green-400'
+                        : 'bg-neutral-700/50 border border-neutral-700 text-neutral-400 hover:border-green-500/50'
+                    }`}
+                  >
+                    <div className="text-lg font-bold">{stats.wicketKeeper}</div>
+                    <div className="text-xs text-center">WK</div>
                   </button>
                 </div>
               </div>
-            ))
+
+              {/* Players List */}
+              {filteredPlayers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="text-2xl mb-2">🔍</div>
+                  <div className="text-neutral-500 text-center">No players found in this category</div>
+                </div>
+              ) : (
+                filteredPlayers.map((player, index) => (
+                  <div
+                    key={player.id}
+                    className="bg-neutral-900 rounded-lg p-4 animate-in fade-in"
+                    style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center font-semibold text-sm border border-neutral-700">
+                        {getPlayerInitials(player.name)}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm">{player.name}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getRoleColor(player.role)}`}>
+                            {player.role.charAt(0).toUpperCase() + player.role.slice(1)}
+                          </span>
+                          {player.active && (
+                            <span className="text-xs text-green-400">Active</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingPlayer({ ...player });
+                          setIsModalOpen(true);
+                        }}
+                        className="flex-1 px-3 py-2 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 rounded transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeletePlayer(player.id)}
+                        disabled={isDeletingId === player.id}
+                        className="flex-1 px-3 py-2 text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors disabled:opacity-50"
+                      >
+                        {isDeletingId === player.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </>
           )}
         </div>
 
@@ -324,10 +413,6 @@ const PlayersPage = () => {
             </div>
           </div>
         )}
-
-        {/* Bottom Navigation */}
-        <BottomNavigation currentPath="/admin/players" />
-      </div>
     </div>
   );
 };

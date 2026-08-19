@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import BottomNavigation from '@/components/common/BottomNavigation';
 import type { Match, Team, Player, Innings } from '@/types';
 
 const MatchSummaryPage = () => {
@@ -240,8 +239,7 @@ const MatchSummaryPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
-      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950 pb-20">
+    <div className="w-full flex flex-col pb-20">
         {/* Header */}
         <div className="sticky top-0 z-20 px-4 py-3 bg-neutral-950/90 backdrop-blur-lg border-b border-neutral-800 flex items-center gap-3">
           <button
@@ -451,10 +449,6 @@ const MatchSummaryPage = () => {
             </div>
           </div>
         )}
-
-        {/* Bottom Navigation */}
-        <BottomNavigation currentPath="/match" />
-      </div>
     </div>
   );
 };

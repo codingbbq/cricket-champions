@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
-import BottomNavigation from '@/components/common/BottomNavigation';
 import type { Match } from '@/types';
 
 const MatchesPage = () => {
@@ -53,7 +52,7 @@ const MatchesPage = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [addToast]);
 
 
   const getStatusColor = (status: string) => {
@@ -104,9 +103,8 @@ const MatchesPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
-      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950">
-        {/* Header */}
+    <div className="w-full flex flex-col">
+      {/* Header */}
         <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
           <div className="flex items-center justify-between mb-3">
             <div className="text-base font-semibold">Matches</div>
@@ -143,6 +141,8 @@ const MatchesPage = () => {
                       navigate(`/admin/matches/${match.id}/teams`);
                     } else if (match.status === 'live') {
                       navigate(`/scoring/${match.id}`);
+                    } else if (match.status === 'completed') {
+                      navigate(`/match/${match.id}`);
                     }
                   }}
                   className="w-full text-left bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-amber-500 hover:bg-neutral-800 transition-all active:scale-95"
@@ -167,17 +167,13 @@ const MatchesPage = () => {
                   <div className="text-xs text-neutral-400">
                     {match.status === 'pending' && 'Tap to select teams'}
                     {match.status === 'live' && 'Tap to go to scoring'}
-                    {match.status === 'completed' && 'Match completed'}
+                    {match.status === 'completed' && 'Tap to view summary'}
                   </div>
                 </button>
               ))}
             </div>
           )}
         </div>
-
-        {/* Bottom Navigation */}
-        <BottomNavigation currentPath="/admin/matches" />
-      </div>
     </div>
   );
 };

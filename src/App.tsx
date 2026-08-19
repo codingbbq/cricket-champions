@@ -10,6 +10,7 @@ import ScoringPage from './pages/ScoringPage';
 import MatchSummaryPage from './pages/MatchSummaryPage';
 import StatisticsPage from './pages/admin/StatisticsPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import MainLayout from './components/common/MainLayout';
 import { ToastProvider, ToastContainer } from './contexts/ToastContext';
 
 function App() {
@@ -18,15 +19,15 @@ function App() {
       <main className="min-h-screen bg-neutral-950 font-sans antialiased">
         <ToastContainer />
         <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/admin/players" element={<ProtectedRoute><PlayersPage /></ProtectedRoute>} />
-        <Route path="/admin/matches" element={<ProtectedRoute><MatchesPage /></ProtectedRoute>} />
+        <Route path="/admin/players" element={<ProtectedRoute><MainLayout><PlayersPage /></MainLayout></ProtectedRoute>} />
+        <Route path="/admin/matches" element={<ProtectedRoute><MainLayout><MatchesPage /></MainLayout></ProtectedRoute>} />
         <Route path="/admin/matches/new" element={<ProtectedRoute><CreateMatchPage /></ProtectedRoute>} />
         <Route path="/admin/matches/:matchId/teams" element={<ProtectedRoute><TeamSelectionPage /></ProtectedRoute>} />
         <Route path="/admin/matches/:matchId/toss" element={<ProtectedRoute><TossPage /></ProtectedRoute>} />
         <Route path="/scoring/:matchId" element={<ProtectedRoute><ScoringPage /></ProtectedRoute>} />
-        <Route path="/match/:matchId" element={<MatchSummaryPage />} />
+        <Route path="/match/:matchId" element={<MainLayout><MatchSummaryPage /></MainLayout>} />
         <Route path="/admin/statistics" element={<ProtectedRoute><StatisticsPage /></ProtectedRoute>} />
         </Routes>
       </main>

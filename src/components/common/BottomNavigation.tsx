@@ -1,13 +1,13 @@
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { useState } from 'react';
+import { useState, memo } from 'react';
 
 interface BottomNavigationProps {
   currentPath?: string;
 }
 
-const BottomNavigation = ({ currentPath = '/' }: BottomNavigationProps) => {
+const BottomNavigation = memo(({ currentPath = '/' }: BottomNavigationProps) => {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -20,11 +20,17 @@ const BottomNavigation = ({ currentPath = '/' }: BottomNavigationProps) => {
     }
   };
 
+  const handleNavigate = (path: string) => {
+    if (currentPath !== path) {
+      navigate(path);
+    }
+  };
+
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-neutral-900 border-t border-neutral-800 px-4 py-3 flex items-center justify-around">
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-neutral-900 border-t border-neutral-800 px-4 py-3 flex items-center justify-around z-40">
         <button
-          onClick={() => navigate('/')}
+          onClick={() => handleNavigate('/')}
           className={`flex flex-col items-center gap-1 transition-colors ${
             currentPath === '/' ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
           }`}
@@ -35,7 +41,7 @@ const BottomNavigation = ({ currentPath = '/' }: BottomNavigationProps) => {
           <span className="text-xs">Home</span>
         </button>
         <button
-          onClick={() => navigate('/admin/matches')}
+          onClick={() => handleNavigate('/admin/matches')}
           className={`flex flex-col items-center gap-1 transition-colors ${
             currentPath === '/admin/matches' ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
           }`}
@@ -46,7 +52,7 @@ const BottomNavigation = ({ currentPath = '/' }: BottomNavigationProps) => {
           <span className="text-xs">Matches</span>
         </button>
         <button
-          onClick={() => navigate('/admin/players')}
+          onClick={() => handleNavigate('/admin/players')}
           className={`flex flex-col items-center gap-1 transition-colors ${
             currentPath === '/admin/players' ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
           }`}
@@ -96,6 +102,8 @@ const BottomNavigation = ({ currentPath = '/' }: BottomNavigationProps) => {
       )}
     </>
   );
-};
+});
+
+BottomNavigation.displayName = 'BottomNavigation';
 
 export default BottomNavigation;

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
-import BottomNavigation from '@/components/common/BottomNavigation';
 import type { Match } from '@/types';
 
 const HomePage = () => {
@@ -114,9 +113,8 @@ const HomePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white flex justify-center">
-      <div className="w-full max-w-md min-h-screen flex flex-col relative bg-neutral-950">
-        {/* Header */}
+    <div className="w-full flex flex-col">
+      {/* Header */}
         <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
           <div className="flex items-center justify-between">
             <div>
@@ -311,10 +309,6 @@ const HomePage = () => {
             {snackbar}
           </div>
         )}
-
-        {/* Bottom Navigation */}
-        <BottomNavigation currentPath="/" />
-      </div>
     </div>
   );
 };
