@@ -432,7 +432,7 @@ const MatchSummaryPage = () => {
                         // Calculate over and ball number from valid balls count
                         const validBallsUpToThisBall = currentInnings.balls
                           .slice(0, currentInnings.balls.length - idx)
-                          .filter(b => !b.isExtra || b.extraType === 'no-ball');
+                          .filter(b => !b.isExtra || b.extraType !== 'no-ball');
                         const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
                         const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
 

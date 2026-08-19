@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { collection, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ScoringControls } from '@/components/scoring/ScoringControls';
 import { BallCommentary } from '@/components/commentary/BallCommentary';
@@ -30,6 +30,7 @@ const ScoringPage = () => {
   const [showStrikerPopup, setShowStrikerPopup] = useState(false);
   const [showNonStrikerPopup, setShowNonStrikerPopup] = useState(false);
   const [showBowlerPopup, setShowBowlerPopup] = useState(false);
+  const [overSummary, setOverSummary] = useState<{ overNumber: number; runsInOver: number; totalScore: number } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -198,11 +199,17 @@ const ScoringPage = () => {
     let tempStriker = striker;
     let tempNonStriker = nonStriker;
     let runsToAdd = newBall.runs;
+    let batsmanRuns = newBall.runs; // Track only batsman runs for strike rotation
 
     // Add automatic +1 run for wide and no-ball
     if (newBall.isExtra && (newBall.extraType === 'wide' || newBall.extraType === 'no-ball')) {
       runsToAdd += 1;
       newScore = currentInnings.score + runsToAdd;
+      // For no-ball, batsmanRuns stays as is (doesn't include the awarded run)
+      // For wide, batsmanRuns is 0 (no runs from batsman action)
+      if (newBall.extraType === 'wide') {
+        batsmanRuns = 0;
+      }
     } else {
       newScore = currentInnings.score + runsToAdd;
     }
@@ -214,9 +221,35 @@ const ScoringPage = () => {
     }
 
     const newBalls = [...currentInnings.balls, newBall];
-    const validBalls = newBalls.filter(b => !b.isExtra || b.extraType === 'no-ball');
+    const validBalls = newBalls.filter(b => !b.isExtra || b.extraType !== 'no-ball');
     const overs = Math.floor(validBalls.length / 6);
     const ballsInOver = validBalls.length % 6;
+
+    // Check if over is completed
+    const previousValidBalls = currentInnings.balls.filter(b => !b.isExtra || b.extraType !== 'no-ball');
+    const previousOvers = Math.floor(previousValidBalls.length / 6);
+    const overJustCompleted = overs > previousOvers && ballsInOver === 0;
+    
+    if (overJustCompleted) {
+      // Calculate runs scored in this over
+      const ballsInThisOver = validBalls.slice(previousValidBalls.length);
+      const runsInThisOver = ballsInThisOver.reduce((sum, b) => {
+        let ballRuns = b.runs;
+        if (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball')) {
+          ballRuns += 1;
+        }
+        return sum + ballRuns;
+      }, 0);
+      
+      setOverSummary({
+        overNumber: overs,
+        runsInOver: runsInThisOver,
+        totalScore: newScore
+      });
+      
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => setOverSummary(null), 3000);
+    }
 
     const isFirstInnings = !firstInnings;
     const currentBattingTeam = isFirstInnings ? battingTeam : bowlingTeam;
@@ -301,28 +334,27 @@ const ScoringPage = () => {
 
     // Handle strike rotation
     // For wide: no strike change
-    // For no-ball: strike changes on odd runs (including the automatic +1)
+    // For no-ball: strike changes on odd batsman runs (not including the awarded +1)
     // For normal ball: strike changes on odd runs or at end of over
     const isWide = newBall.isExtra && newBall.extraType === 'wide';
     const isNoBall = newBall.isExtra && newBall.extraType === 'no-ball';
 
     if (!isWide) {
       // Check if strike should change due to odd runs
-      if (runsToAdd % 2 !== 0) {
+      // For no-ball, use batsmanRuns (excludes the awarded +1 run)
+      // For regular balls, use runsToAdd
+      const runsForStrikeChange = isNoBall ? batsmanRuns : runsToAdd;
+      
+      if (runsForStrikeChange % 2 !== 0) {
         setStriker(tempNonStriker);
         setNonStriker(tempStriker);
       }
       // Check if over is complete (and we have at least one ball)
-      if (ballsInOver === 0 && validBalls.length > 0) {
+      // For no-ball, it doesn't complete an over, so skip this check
+      if (!isNoBall && ballsInOver === 0 && validBalls.length > 0) {
         setStriker(tempNonStriker);
         setNonStriker(tempStriker);
         setBowler(null);
-      }
-    } else if (isNoBall) {
-      // No-ball: check odd runs for strike change
-      if (runsToAdd % 2 !== 0) {
-        setStriker(tempNonStriker);
-        setNonStriker(tempStriker);
       }
     }
 
@@ -484,6 +516,21 @@ const ScoringPage = () => {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-8 space-y-4">
+          {/* Over Summary Card */}
+          {overSummary && (
+            <div className="bg-gradient-to-r from-green-900/40 to-green-950/40 rounded-lg p-4 border border-green-700/50 animate-pulse">
+              <div className="text-center space-y-2">
+                <div className="text-sm font-semibold text-green-300">Over {overSummary.overNumber} completed</div>
+                <div className="text-xs text-neutral-300">
+                  Runs scored in this Over: <span className="font-bold text-green-400">{overSummary.runsInOver}</span>
+                </div>
+                <div className="text-xs text-neutral-300">
+                  Total score of {battingTeam.name}: <span className="font-bold text-amber-400">{overSummary.totalScore}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Score Card */}
           <div className="bg-neutral-900 rounded-lg p-4 text-center space-y-1">
             <div className="text-xs text-neutral-400">{battingTeam.name} batting</div>
@@ -663,7 +710,7 @@ const ScoringPage = () => {
                     // Calculate over and ball number from valid balls count
                     const validBallsUpToThisBall = currentInnings.balls
                       .slice(0, currentInnings.balls.length - idx)
-                      .filter(b => !b.isExtra || b.extraType === 'no-ball');
+                      .filter(b => !b.isExtra || b.extraType !== 'no-ball');
                     const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
                     const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
 

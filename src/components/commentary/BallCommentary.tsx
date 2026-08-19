@@ -28,7 +28,14 @@ export const BallCommentary = ({ ball, overNumber, ballInOver, playersMap }: Bal
   const getCommentaryText = (): { overBall: string; text: string } => {
     const strikerName = getPlayerName(ball.strikerId, ball.strikerName);
     const bowlerName = getPlayerName(ball.bowlerId, ball.bowlerName);
-    const overBall = `${overNumber}.${ballInOver}`;
+    
+    // Determine ball notation
+    let overBall = `${overNumber}.${ballInOver}`;
+    if (ball.isExtra && ball.extraType === 'wide') {
+      overBall = 'WD';
+    } else if (ball.isExtra && ball.extraType === 'no-ball') {
+      overBall = 'NB';
+    }
     
     let text = '';
     
@@ -52,8 +59,9 @@ export const BallCommentary = ({ ball, overNumber, ballInOver, playersMap }: Bal
       if (ball.extraType === 'wide') {
         text = `Wide ball by ${bowlerName}! +1 run`;
       } else if (ball.extraType === 'no-ball') {
-        const extraRuns = ball.runs + 1;
-        text = `No ball by ${bowlerName}! +${extraRuns} runs`;
+        const totalRuns = ball.runs + 1;
+        const runLabel = totalRuns === 1 ? 'Run' : 'Runs';
+        text = `No ball by ${bowlerName}! 1 + ${ball.runs} ${ball.runs === 1 ? 'Run' : 'Runs'} = ${totalRuns} ${runLabel}`;
       }
       return { overBall, text };
     }
