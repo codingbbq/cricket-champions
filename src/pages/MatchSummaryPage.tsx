@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { BallCommentary } from '@/components/commentary/BallCommentary';
 import type { Match, Team, Player, Innings } from '@/types';
 
 const MatchSummaryPage = () => {
@@ -293,53 +294,64 @@ const MatchSummaryPage = () => {
           ) : null}
 
           {/* Match Info */}
-          <div className="space-y-2">
-            <div className="text-xs text-neutral-500">
-              {match.venue} · {new Date(match.date.seconds ? match.date.seconds * 1000 : match.date).toLocaleDateString()} · {match.overs} overs
-            </div>
-            <div className="text-lg font-bold">Match Summary</div>
-            <div className="text-sm text-amber-400">Match completed</div>
+          <div className="text-lg font-bold text-neutral-500">
+            {match.venue} · {new Date(match.date.seconds ? match.date.seconds * 1000 : match.date).toLocaleDateString()} · {match.overs} overs
           </div>
-
+          
           {/* Match Result */}
           {innings.length > 0 && (
-            <div className="bg-neutral-900 rounded-lg p-4 space-y-2">
-              <div className="text-sm font-semibold">
+            <div className="relative rounded-lg overflow-hidden">
+              <div className="absolute inset-0 text-6xl opacity-10 flex items-center justify-center">🏆</div>
+              <div className="relative bg-neutral-900/50 backdrop-blur-sm border border-amber-500/20 rounded-lg p-4">
                 {innings[1] ? (
-                  <>
-                    {innings[1].score > innings[0].score 
-                      ? `${teams[innings[1].teamId]?.name} won by ${(Object.values(teams).find(t => t.id === innings[1].teamId)?.players.length || 11) - innings[1].wickets} wickets`
-                      : `${teams[innings[0].teamId]?.name} won by ${innings[0].score - innings[1].score} runs`
-                    }
-                  </>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">
+                      {innings[1].score > innings[0].score 
+                        ? `${teams[innings[1].teamId]?.name} Won!`
+                        : `${teams[innings[0].teamId]?.name} Won!`
+                      }
+                    </div>
+                    <div className="text-sm text-neutral-400 mt-1">
+                      {innings[1].score > innings[0].score 
+                        ? `by ${(Object.values(teams).find(t => t.id === innings[1].teamId)?.players.length || 11) - innings[1].wickets} wickets`
+                        : `by ${innings[0].score - innings[1].score} runs`
+                      }
+                    </div>
+                  </div>
                 ) : (
-                  `${teams[innings[0].teamId]?.name} — ${innings[0].score}/${innings[0].wickets}`
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-amber-400">
+                      {teams[innings[0].teamId]?.name}
+                    </div>
+                    <div className="text-sm text-neutral-400">
+                      {innings[0].score}/{innings[0].wickets}
+                    </div>
+                  </div>
                 )}
               </div>
-              {innings.length > 0 && (
-                <div className="text-xs text-neutral-500">
-                  Player of the match: TBD
-                </div>
-              )}
             </div>
           )}
 
           {/* Innings Tabs */}
-          <div className="flex gap-2">
-            {innings.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedInnings(idx)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  selectedInnings === idx
-                    ? 'bg-amber-500 text-black'
-                    : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                }`}
-              >
-                {teams[innings[idx].teamId]?.name} inns
-              </button>
-            ))}
-          </div>
+          {innings.length > 0 && (
+            <div className="border-b border-neutral-800">
+              <div className="flex gap-0">
+                {innings.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedInnings(idx)}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                      selectedInnings === idx
+                        ? 'border-amber-500 text-amber-400 bg-neutral-900/50'
+                        : 'border-transparent text-neutral-400 hover:text-neutral-300'
+                    }`}
+                  >
+                    {teams[innings[idx].teamId]?.name} Innings
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {currentInnings && (
             <>
@@ -405,6 +417,42 @@ const MatchSummaryPage = () => {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              {/* Commentary */}
+              <div>
+                <h3 className="font-semibold text-base mb-3">Commentary</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {currentInnings.balls && currentInnings.balls.length > 0 ? (
+                    currentInnings.balls
+                      .slice()
+                      .reverse()
+                      .map((ball, idx) => {
+                        // Calculate over and ball number from valid balls count
+                        const validBallsUpToThisBall = currentInnings.balls
+                          .slice(0, currentInnings.balls.length - idx)
+                          .filter(b => !b.isExtra || b.extraType === 'no-ball');
+                        const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
+                        const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
+
+                        // Create players map for name lookup
+                        const playersMap = new Map<string, string>();
+                        players.forEach(p => playersMap.set(p.id, p.name));
+
+                        return (
+                          <BallCommentary
+                            key={idx}
+                            ball={ball}
+                            overNumber={overNumber}
+                            ballInOver={ballInOver}
+                            playersMap={playersMap}
+                          />
+                        );
+                      })
+                  ) : (
+                    <div className="text-sm text-neutral-500">No balls bowled in this innings</div>
+                  )}
                 </div>
               </div>
             </>

@@ -16,12 +16,17 @@ export interface Team {
 export interface Ball {
   ballNumber: number;
   bowlerId: string;
+  bowlerName?: string;
   strikerId: string;
+  strikerName?: string;
   runs: number;
   isExtra: boolean;
   extraType?: 'wide' | 'no-ball';
   isWicket: boolean;
   wicketType?: string;
+  fielderId?: string;
+  fielderName?: string;
+  timestamp?: any; // Firestore Timestamp when ball was bowled
 }
 
 export interface Innings {

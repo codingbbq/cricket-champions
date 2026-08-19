@@ -12,19 +12,57 @@ const HomePage = () => {
   const [expandedMatches, setExpandedMatches] = useState<Record<string, boolean>>({});
   const [snackbar, setSnackbar] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
+    fetchPlayers();
     fetchMatches();
   }, []);
+
+  const fetchPlayers = async () => {
+    try {
+      const playersRef = collection(db, 'players');
+      const snapshot = await getDocs(playersRef);
+      const playerMap = new Map<string, string>();
+      snapshot.docs.forEach(doc => {
+        const playerData = doc.data();
+        playerMap.set(doc.id, playerData.name || 'Unknown');
+      });
+      setPlayers(playerMap);
+    } catch (error) {
+      console.error('Error fetching players:', error);
+    }
+  };
 
   const fetchMatches = async () => {
     try {
       const matchesRef = collection(db, 'matches');
       const snapshot = await getDocs(matchesRef);
-      const matchesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      } as Match));
+      const matchesData = await Promise.all(
+        snapshot.docs.map(async (doc) => {
+          const matchData = {
+            id: doc.id,
+            ...doc.data(),
+          } as Match;
+
+          // Fetch innings data for completed matches
+          if (matchData.status === 'completed') {
+            try {
+              const inningsRef = collection(db, `matches/${doc.id}/innings`);
+              const inningsSnap = await getDocs(inningsRef);
+              const inningsData = inningsSnap.docs.map(inningsDoc => ({
+                id: inningsDoc.id,
+                ...inningsDoc.data(),
+              } as any));
+              matchData.innings = inningsData;
+            } catch (err) {
+              console.error(`Error fetching innings for match ${doc.id}:`, err);
+            }
+          }
+
+          return matchData;
+        })
+      );
       setMatches(matchesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (error) {
       console.error('Error fetching matches:', error);
@@ -239,7 +277,10 @@ const HomePage = () => {
                           (() => {
                             const allBalls = match.innings.flatMap((inn: any) => inn.balls || []);
                             const strikerStats = new Map<string, any>();
+                            const bowlerStats = new Map<string, any>();
+                            const catcherStats = new Map<string, any>();
                             
+                            // Calculate batting stats
                             allBalls.forEach((ball: any) => {
                               if (!strikerStats.has(ball.strikerId)) {
                                 strikerStats.set(ball.strikerId, { runs: 0, balls: 0, playerId: ball.strikerId });
@@ -249,15 +290,58 @@ const HomePage = () => {
                               stats.balls += 1;
                             });
                             
-                            return Array.from(strikerStats.values())
-                              .sort((a, b) => b.runs - a.runs)
-                              .slice(0, 3)
-                              .map((stat: any, idx: number) => (
-                                <div key={idx} className="flex items-center justify-between text-sm">
-                                  <span className="text-neutral-300">Top scorer</span>
-                                  <span className="text-neutral-400 font-semibold">{stat.runs}({stat.balls})</span>
-                                </div>
-                              ));
+                            // Calculate bowling stats
+                            allBalls.forEach((ball: any) => {
+                              if (!bowlerStats.has(ball.bowlerId)) {
+                                bowlerStats.set(ball.bowlerId, { runs: 0, wickets: 0, balls: 0, playerId: ball.bowlerId });
+                              }
+                              const stats = bowlerStats.get(ball.bowlerId);
+                              stats.runs += ball.runs;
+                              stats.balls += 1;
+                              if (ball.isWicket) {
+                                stats.wickets += 1;
+                              }
+                            });
+                            
+                            // Calculate fielding stats (catches)
+                            allBalls.forEach((ball: any) => {
+                              if (ball.isWicket && ball.wicketType === 'caught' && ball.fielderId) {
+                                if (!catcherStats.has(ball.fielderId)) {
+                                  catcherStats.set(ball.fielderId, { catches: 0, playerId: ball.fielderId });
+                                }
+                                const stats = catcherStats.get(ball.fielderId);
+                                stats.catches += 1;
+                              }
+                            });
+                            
+                            // Get top performers and all tied players
+                            const allScorers = Array.from(strikerStats.values()).sort((a, b) => b.runs - a.runs);
+                            const topScorerRuns = allScorers[0]?.runs;
+                            const topScorers = allScorers.filter(s => s.runs === topScorerRuns);
+                            
+                            const allBowlers = Array.from(bowlerStats.values()).sort((a, b) => b.wickets - a.wickets || b.runs - a.runs);
+                            const topBowlerWickets = allBowlers[0]?.wickets;
+                            const topBowlers = allBowlers.filter(b => b.wickets === topBowlerWickets && b.wickets > 0);
+                            
+                            return (
+                              <>
+                                {topScorers.length > 0 && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-neutral-300">🏏 Top Scorer</span>
+                                    <span className="text-neutral-400 font-semibold">{topScorers.map(s => players.get(s.playerId) || 'Unknown').join(', ')} - {topScorerRuns}({topScorers[0].balls})</span>
+                                  </div>
+                                )}
+                                {topBowlers.length > 0 && (
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-neutral-300">🎯 Highest Wicket Taker</span>
+                                    <span className="text-neutral-400 font-semibold">{topBowlers.map(b => players.get(b.playerId) || 'Unknown').join(', ')} - {topBowlerWickets}W</span>
+                                  </div>
+                                )}
+                                {topScorers.length === 0 && topBowlers.length === 0 && (
+                                  <div className="text-xs text-neutral-600">No match data available</div>
+                                )}
+                              </>
+                            );
                           })()
                         ) : (
                           <div className="text-xs text-neutral-600">Match data not available</div>

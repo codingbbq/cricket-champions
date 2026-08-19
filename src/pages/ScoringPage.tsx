@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, getDocs, writeBatch, updateDoc } from 'firebase/firestore';
-
+import { collection, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { ScoringControls } from '@/components/scoring/ScoringControls';
+import { BallCommentary } from '@/components/commentary/BallCommentary';
+import { MatchSummary } from '@/components/scoring/MatchSummary';
 import { useToast } from '@/contexts/ToastContext';
 import type { Match, Team, Player, Innings, Ball } from '@/types';
-import { ScoringControls } from '@/components/scoring/ScoringControls';
-import { MatchSummary } from '@/components/scoring/MatchSummary';
 
 const ScoringPage = () => {
   const { matchId } = useParams<{ matchId: string }>();
@@ -331,7 +331,16 @@ const ScoringPage = () => {
 
   const handleScore = (runs: number) => {
     if (!striker || !bowler) return;
-    processBall({ bowlerId: bowler.id, strikerId: striker.id, runs, isExtra: false, isWicket: false });
+    processBall({ 
+      bowlerId: bowler.id, 
+      bowlerName: bowler.name,
+      strikerId: striker.id, 
+      strikerName: striker.name,
+      runs, 
+      isExtra: false, 
+      isWicket: false,
+      timestamp: new Date()
+    });
   };
 
   const handleExtra = (extraType: 'wide' | 'no-ball') => {
@@ -339,7 +348,17 @@ const ScoringPage = () => {
 
     if (extraType === 'wide') {
       // Wide ball: automatically adds 1 run, no strike change
-      processBall({ bowlerId: bowler.id, strikerId: striker.id, runs: 0, isExtra: true, extraType: 'wide', isWicket: false });
+      processBall({ 
+        bowlerId: bowler.id, 
+        bowlerName: bowler.name,
+        strikerId: striker.id, 
+        strikerName: striker.name,
+        runs: 0, 
+        isExtra: true, 
+        extraType: 'wide', 
+        isWicket: false,
+        timestamp: new Date()
+      });
     } else {
       // No-ball: show popup to select extra runs
       setNoBallRuns(0);
@@ -349,7 +368,17 @@ const ScoringPage = () => {
 
   const handleNoBallSubmit = (extraRuns: number) => {
     if (!striker || !bowler) return;
-    processBall({ bowlerId: bowler.id, strikerId: striker.id, runs: extraRuns, isExtra: true, extraType: 'no-ball', isWicket: false });
+    processBall({ 
+      bowlerId: bowler.id, 
+      bowlerName: bowler.name,
+      strikerId: striker.id, 
+      strikerName: striker.name,
+      runs: extraRuns, 
+      isExtra: true, 
+      extraType: 'no-ball', 
+      isWicket: false,
+      timestamp: new Date()
+    });
     setShowNoBallPopup(false);
     setNoBallRuns(0);
   };
@@ -357,7 +386,17 @@ const ScoringPage = () => {
   const handleWicket = () => {
     if (!striker || !bowler) return;
     // TODO: Implement a modal to select wicket type and new batsman
-    processBall({ bowlerId: bowler.id, strikerId: striker.id, runs: 0, isExtra: false, isWicket: true, wicketType: 'bowled' });
+    processBall({ 
+      bowlerId: bowler.id, 
+      bowlerName: bowler.name,
+      strikerId: striker.id, 
+      strikerName: striker.name,
+      runs: 0, 
+      isExtra: false, 
+      isWicket: true, 
+      wicketType: 'bowled',
+      timestamp: new Date()
+    });
   };
 
   if (matchWinner) {
@@ -627,35 +666,19 @@ const ScoringPage = () => {
                       .filter(b => !b.isExtra || b.extraType === 'no-ball');
                     const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
                     const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
-                    const overBallNotation = `${overNumber}.${ballInOver}`;
 
-                    // Get current time in IST
-                    const now = new Date();
-                    const istTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-                    const timeString = istTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-
-                    // Format runs and extras info
-                    let runsInfo = '';
-                    if (ball.isExtra && ball.extraType === 'wide') {
-                      runsInfo = `${ball.runs} Runs (Wide ball +1) = ${ball.runs + 1} runs`;
-                    } else if (ball.isExtra && ball.extraType === 'no-ball') {
-                      runsInfo = `${ball.runs} Runs (No ball +1) = ${ball.runs + 1} runs`;
-                    } else {
-                      runsInfo = `${ball.runs} runs`;
-                    }
+                    // Create players map for name lookup
+                    const playersMap = new Map<string, string>();
+                    players.forEach(p => playersMap.set(p.id, p.name));
 
                     return (
-                      <div key={idx} className="text-sm text-neutral-300 pb-2 border-b border-neutral-800 last:border-b-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <span className="font-semibold text-amber-400">{overBallNotation}</span>
-                            <span className="text-neutral-500 mx-2">-</span>
-                            <span>{runsInfo}</span>
-                            {ball.isWicket && <span className="ml-2 font-bold text-red-400">WICKET!</span>}
-                          </div>
-                          <span className="text-xs text-neutral-600 whitespace-nowrap">{timeString}</span>
-                        </div>
-                      </div>
+                      <BallCommentary
+                        key={idx}
+                        ball={ball}
+                        overNumber={overNumber}
+                        ballInOver={ballInOver}
+                        playersMap={playersMap}
+                      />
                     );
                   })
               )}
