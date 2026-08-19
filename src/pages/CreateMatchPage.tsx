@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const CreateMatchPage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
   const [step, setStep] = useState(1);
   const [venue, setVenue] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -23,6 +25,11 @@ const CreateMatchPage = () => {
       return;
     }
 
+    if (!currentUser) {
+      setError('You must be logged in to create a match');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -33,6 +40,7 @@ const CreateMatchPage = () => {
         overs: Number(overs),
         lastManBatting,
         status: 'pending',
+        createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
       });
       setMatchId(newMatchRef.id);
@@ -74,7 +82,7 @@ const CreateMatchPage = () => {
 
   const handleProceedToTeams = () => {
     if (matchId) {
-      navigate(`/admin/matches/${matchId}/teams`);
+      navigate(`/matches/${matchId}/teams`);
     }
   };
 
@@ -101,7 +109,7 @@ const CreateMatchPage = () => {
             <button
               onClick={() => {
                 if (step === 1) {
-                  navigate('/admin/matches');
+                  navigate('/matches');
                 } else {
                   setStep(1);
                 }

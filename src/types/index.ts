@@ -57,6 +57,7 @@ export interface Match {
   lastManBatting: boolean;
   status: 'pending' | 'live' | 'completed';
   createdAt: any; // or firebase.firestore.Timestamp
+  createdBy: string; // User ID of match creator
   toss?: {
     winnerId: string; // Will be 'teamA' or 'teamB'
     choice: 'bat' | 'bowl';

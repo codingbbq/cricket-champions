@@ -11,8 +11,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   // Determine current path for navigation highlighting
   const getCurrentPath = () => {
     if (location.pathname === '/') return '/';
-    if (location.pathname.startsWith('/admin/players')) return '/admin/players';
-    if (location.pathname.startsWith('/admin/matches')) return '/admin/matches';
+    if (location.pathname.startsWith('/players')) return '/players';
+    if (location.pathname.startsWith('/matches')) return '/matches';
     return location.pathname;
   };
 

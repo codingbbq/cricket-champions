@@ -11,10 +11,9 @@ const Navigation: React.FC = () => {
   const navItems = [
     { path: '/', label: 'Home' },
     ...(currentUser ? [
-      { path: '/admin', label: 'Dashboard' },
-      { path: '/admin/players', label: 'Players' },
-      { path: '/admin/matches', label: 'Matches' },
-      { path: '/admin/statistics', label: 'Statistics' },
+      { path: '/matches', label: 'Matches' },
+      { path: '/players', label: 'Players' },
+      { path: '/statistics', label: 'Statistics' },
     ] : []),
   ];
 

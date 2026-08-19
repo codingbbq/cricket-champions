@@ -12,7 +12,7 @@ const AdminDashboardPage = () => {
           <p className="text-gray-600">Manage players, matches, and view statistics</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Link to="/admin/players">
+          <Link to="/players">
             <Card className="hover:shadow-xl transition-shadow cursor-pointer h-full">
               <CardContent className="text-center py-12">
                 <div className="text-5xl mb-4">👥</div>
@@ -21,7 +21,7 @@ const AdminDashboardPage = () => {
               </CardContent>
             </Card>
           </Link>
-          <Link to="/admin/matches">
+          <Link to="/matches">
             <Card className="hover:shadow-xl transition-shadow cursor-pointer h-full">
               <CardContent className="text-center py-12">
                 <div className="text-5xl mb-4">🏏</div>
@@ -30,7 +30,7 @@ const AdminDashboardPage = () => {
               </CardContent>
             </Card>
           </Link>
-          <Link to="/admin/statistics">
+          <Link to="/statistics">
             <Card className="hover:shadow-xl transition-shadow cursor-pointer h-full">
               <CardContent className="text-center py-12">
                 <div className="text-5xl mb-4">📊</div>

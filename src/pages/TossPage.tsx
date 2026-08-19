@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Match, Team } from '@/types';
 
 const TossPage = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [tossWinnerKey, setTossWinnerKey] = useState<string | null>(null);
@@ -21,8 +23,8 @@ const TossPage = () => {
     let isMounted = true;
 
     const fetchData = async () => {
-      if (!matchId) {
-        setError('Match ID not found');
+      if (!matchId || !currentUser) {
+        setError('Match ID or user not found');
         setLoading(false);
         return;
       }
@@ -44,6 +46,10 @@ const TossPage = () => {
           }
 
           const matchData = { id: matchSnap.id, ...matchSnap.data() } as Match;
+          // Verify user is the match creator
+          if (matchData.createdBy !== currentUser.uid) {
+            throw new Error('You can only edit matches you created');
+          }
           if (isMounted) setMatch(matchData);
 
           // Fetch teams from subcollection
@@ -77,7 +83,7 @@ const TossPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [matchId, addToast]);
+  }, [matchId, currentUser, addToast]);
 
   const handleToss = () => {
     if (teams.length === 0 || isFlipping) return;
@@ -131,7 +137,7 @@ const TossPage = () => {
           <div className="text-4xl mb-4">⚠️</div>
           <p className="text-red-400 mb-4">{error || 'Match data is incomplete'}</p>
           <button
-            onClick={() => navigate('/admin/matches')}
+            onClick={() => navigate('/matches')}
             className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg"
           >
             Back to Matches
@@ -150,7 +156,7 @@ const TossPage = () => {
         <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
           <div className="flex items-center gap-3 mb-3">
             <button
-              onClick={() => navigate(`/admin/matches/${matchId}/teams`)}
+              onClick={() => navigate(`/matches/${matchId}/teams`)}
               className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
             >
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">

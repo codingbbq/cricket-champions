@@ -41,9 +41,9 @@ const BottomNavigation = memo(({ currentPath = '/' }: BottomNavigationProps) => 
           <span className="text-xs">Home</span>
         </button>
         <button
-          onClick={() => handleNavigate('/admin/matches')}
+          onClick={() => handleNavigate('/matches')}
           className={`flex flex-col items-center gap-1 transition-colors ${
-            currentPath === '/admin/matches' ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
+            currentPath === '/matches' ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
           }`}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -52,9 +52,9 @@ const BottomNavigation = memo(({ currentPath = '/' }: BottomNavigationProps) => 
           <span className="text-xs">Matches</span>
         </button>
         <button
-          onClick={() => handleNavigate('/admin/players')}
+          onClick={() => handleNavigate('/players')}
           className={`flex flex-col items-center gap-1 transition-colors ${
-            currentPath === '/admin/players' ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
+            currentPath === '/players' ? 'text-amber-400' : 'text-neutral-400 hover:text-amber-400'
           }`}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

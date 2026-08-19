@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Match } from '@/types';
 
 const MatchesPage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -15,6 +17,8 @@ const MatchesPage = () => {
     let isMounted = true;
 
     const fetchMatchesWithTimeout = async () => {
+      if (!currentUser) return;
+      
       setLoading(true);
       try {
         const timeoutPromise = new Promise((_, reject) =>
@@ -22,7 +26,9 @@ const MatchesPage = () => {
         );
 
         const matchesCollection = collection(db, 'matches');
-        const fetchPromise = getDocs(matchesCollection);
+        // Fetch only matches created by current user
+        const q = query(matchesCollection, where('createdBy', '==', currentUser.uid));
+        const fetchPromise = getDocs(q);
 
         const matchesSnapshot = await Promise.race([fetchPromise, timeoutPromise]) as any;
         
@@ -52,7 +58,7 @@ const MatchesPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [addToast]);
+  }, [addToast, currentUser]);
 
 
   const getStatusColor = (status: string) => {
@@ -107,9 +113,9 @@ const MatchesPage = () => {
       {/* Header */}
         <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
           <div className="flex items-center justify-between mb-3">
-            <div className="text-base font-semibold">Matches</div>
+            <div className="text-base font-semibold">My Matches</div>
             <button
-              onClick={() => navigate('/admin/matches/new')}
+              onClick={() => navigate('/matches/new')}
               className="w-8 h-8 flex items-center justify-center bg-amber-500 hover:bg-amber-600 text-black rounded-lg transition-colors font-bold"
             >
               +
@@ -125,7 +131,7 @@ const MatchesPage = () => {
               <div className="text-4xl mb-3">🏏</div>
               <p className="text-neutral-400 mb-4">No matches found</p>
               <button
-                onClick={() => navigate('/admin/matches/new')}
+                onClick={() => navigate('/matches/new')}
                 className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
               >
                 Create First Match
@@ -138,7 +144,7 @@ const MatchesPage = () => {
                   key={match.id}
                   onClick={() => {
                     if (match.status === 'pending') {
-                      navigate(`/admin/matches/${match.id}/teams`);
+                      navigate(`/matches/${match.id}/teams`);
                     } else if (match.status === 'live') {
                       navigate(`/scoring/${match.id}`);
                     } else if (match.status === 'completed') {

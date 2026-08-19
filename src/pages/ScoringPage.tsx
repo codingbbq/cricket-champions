@@ -471,7 +471,7 @@ const ScoringPage = () => {
           <div className="text-4xl mb-4">⚠️</div>
           <p className="text-red-400 mb-4">{error || 'Match data is incomplete'}</p>
           <button
-            onClick={() => navigate('/admin/matches')}
+            onClick={() => navigate('/matches')}
             className="px-6 py-2 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg"
           >
             Back to Matches
@@ -495,7 +495,7 @@ const ScoringPage = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate('/admin/matches')}
+                onClick={() => navigate('/matches')}
                 className="w-7 h-7 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
               >
                 <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">

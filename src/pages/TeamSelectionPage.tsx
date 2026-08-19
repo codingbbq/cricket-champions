@@ -3,12 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Match, Player } from '@/types';
 
 const TeamSelectionPage = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { currentUser } = useAuth();
   const [match, setMatch] = useState<Match | null>(null);
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [playerAssignments, setPlayerAssignments] = useState<Record<string, 'A' | 'B' | 'C' | null>>({});
@@ -18,13 +20,20 @@ const TeamSelectionPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!matchId) return;
+      if (!matchId || !currentUser) return;
       setLoading(true);
       try {
         const matchRef = doc(db, 'matches', matchId);
         const matchSnap = await getDoc(matchRef);
         if (matchSnap.exists()) {
-          setMatch(matchSnap.data() as Match);
+          const matchData = matchSnap.data() as Match;
+          // Verify user is the match creator
+          if (matchData.createdBy !== currentUser.uid) {
+            addToast('You can only edit matches you created', 'error');
+            navigate('/matches');
+            return;
+          }
+          setMatch(matchData);
         }
 
         const playersSnap = await getDocs(collection(db, 'players'));
@@ -68,7 +77,7 @@ const TeamSelectionPage = () => {
       }
     };
     fetchData();
-  }, [matchId, addToast]);
+  }, [matchId, currentUser, addToast, navigate]);
 
   const handleDragStart = (playerId: string) => {
     setDraggedPlayer(playerId);
@@ -156,7 +165,7 @@ const TeamSelectionPage = () => {
       });
 
       addToast('Teams saved successfully!', 'success');
-      navigate(`/admin/matches/${matchId}/toss`);
+      navigate(`/matches/${matchId}/toss`);
     } catch (error) {
       console.error('Error saving teams:', error);
       addToast('Failed to save teams', 'error');
@@ -183,7 +192,7 @@ const TeamSelectionPage = () => {
         <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
           <div className="flex items-center gap-3 mb-3">
             <button
-              onClick={() => navigate(`/admin/matches/${matchId}`)}
+              onClick={() => navigate(`/matches/${matchId}`)}
               className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
             >
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
