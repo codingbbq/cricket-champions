@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useToast } from '@/contexts/ToastContext';
 
 const CreateMatchPage = () => {
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [venue, setVenue] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -13,6 +15,7 @@ const CreateMatchPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleCreateMatch = async () => {
     if (!venue.trim()) {
@@ -37,6 +40,33 @@ const CreateMatchPage = () => {
     } catch (err) {
       console.error('Error creating match:', err);
       setError('Failed to create match. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateMatch = async () => {
+    if (!venue.trim() || !matchId) {
+      setError('Please enter a venue');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const matchRef = doc(db, 'matches', matchId);
+      await updateDoc(matchRef, {
+        venue,
+        date: new Date(date),
+        overs: Number(overs),
+        lastManBatting,
+      });
+      addToast('Match details updated successfully!', 'success');
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error updating match:', err);
+      setError('Failed to update match. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -158,33 +188,120 @@ const CreateMatchPage = () => {
 
           {step === 2 && matchId && (
             <div className="space-y-6 animate-in fade-in">
-              <div className="bg-neutral-900 rounded-lg p-6 text-center space-y-2">
-                <div className="text-4xl">✅</div>
-                <div className="text-lg font-semibold mt-3">Match ready</div>
-                <div className="text-sm text-neutral-400">{venue} · {date} · {overs} overs</div>
-              </div>
+              {!isEditing ? (
+                <>
+                  <div className="bg-neutral-900 rounded-lg p-6 text-center space-y-2">
+                    <div className="text-4xl">✅</div>
+                    <div className="text-lg font-semibold mt-3">Match ready</div>
+                    <div className="text-sm text-neutral-400">{venue} · {date} · {overs} overs</div>
+                  </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between py-2 border-b border-neutral-800">
-                  <span>Venue</span>
-                  <span className="text-neutral-400">{venue}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-neutral-800">
-                  <span>Date</span>
-                  <span className="text-neutral-400">{new Date(date).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span>Overs</span>
-                  <span className="text-neutral-400">{overs}</span>
-                </div>
-              </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between py-2 border-b border-neutral-800">
+                      <span>Venue</span>
+                      <span className="text-neutral-400">{venue}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-neutral-800">
+                      <span>Date</span>
+                      <span className="text-neutral-400">{new Date(date).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-neutral-800">
+                      <span>Overs</span>
+                      <span className="text-neutral-400">{overs}</span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span>Last man batting</span>
+                      <span className="text-neutral-400">{lastManBatting ? 'Yes' : 'No'}</span>
+                    </div>
+                  </div>
 
-              <button
-                onClick={handleProceedToTeams}
-                className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors mt-6"
-              >
-                Select Teams →
-              </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex-1 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-lg transition-colors"
+                    >
+                      Edit Details
+                    </button>
+                    <button
+                      onClick={handleProceedToTeams}
+                      className="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
+                    >
+                      Select Teams →
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm text-neutral-400 mb-2">Edit match details</div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">Match venue</label>
+                    <input
+                      type="text"
+                      value={venue}
+                      onChange={(e) => setVenue(e.target.value)}
+                      placeholder="e.g. Riverside Turf, Sec 21"
+                      className="w-full px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">Match date</label>
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">Number of overs</label>
+                    <input
+                      type="number"
+                      value={overs}
+                      onChange={(e) => setOvers(Number(e.target.value))}
+                      min="1"
+                      max="50"
+                      className="w-full px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 px-0">
+                    <div className="text-sm font-medium">Last man batting</div>
+                    <button
+                      onClick={() => setLastManBatting(!lastManBatting)}
+                      className={`w-10 h-6 rounded-full transition-colors flex items-center ${
+                        lastManBatting ? 'bg-amber-600' : 'bg-neutral-700'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          lastManBatting ? 'translate-x-4.5' : 'translate-x-0.5'
+                        }`}
+                      ></div>
+                    </button>
+                  </div>
+
+                  {error && <p className="text-sm text-red-400">{error}</p>}
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="flex-1 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUpdateMatch}
+                      disabled={isSubmitting || !venue.trim()}
+                      className="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

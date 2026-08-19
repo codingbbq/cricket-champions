@@ -36,6 +36,29 @@ const TeamSelectionPage = () => {
         players.forEach(p => {
           assignments[p.id] = null;
         });
+
+        // Try to load existing team assignments from Firestore
+        try {
+          const teamsQuery = collection(db, `matches/${matchId}/teams`);
+          const teamsSnap = await getDocs(teamsQuery);
+          
+          if (!teamsSnap.empty) {
+            teamsSnap.docs.forEach(teamDoc => {
+              const teamData = teamDoc.data();
+              const teamId = teamDoc.id === 'teamA' ? 'A' : teamDoc.id === 'teamB' ? 'B' : 'C';
+              
+              if (Array.isArray(teamData.players)) {
+                teamData.players.forEach((playerId: string) => {
+                  assignments[playerId] = teamId;
+                });
+              }
+            });
+          }
+        } catch (err) {
+          // Teams might not exist yet, that's okay
+          console.log('No existing teams found');
+        }
+
         setPlayerAssignments(assignments);
       } catch (error) {
         console.error('Error fetching data:', error);

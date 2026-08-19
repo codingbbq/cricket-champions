@@ -9,7 +9,6 @@ const TossPage = () => {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const [step, setStep] = useState(3); // Start at step 3 (Toss)
   const [match, setMatch] = useState<Match | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [tossWinnerKey, setTossWinnerKey] = useState<string | null>(null);
@@ -87,7 +86,6 @@ const TossPage = () => {
       const randomIndex = Math.random() < 0.5 ? 0 : 1;
       setTossWinnerKey(teams[randomIndex].id);
       setIsFlipping(false);
-      setStep(4);
     }, 1400);
   };
 
@@ -108,6 +106,11 @@ const TossPage = () => {
       console.error('Error updating toss:', error);
       addToast('Failed to save toss result', 'error');
     }
+  };
+
+  const handleReToss = () => {
+    setTossWinnerKey(null);
+    setDecision(null);
   };
 
   if (loading) {
@@ -200,38 +203,47 @@ const TossPage = () => {
 
               <div className="text-center text-sm text-neutral-400">What's the decision?</div>
 
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 p-3 bg-neutral-900 rounded-lg cursor-pointer hover:bg-neutral-800 transition-colors">
-                  <input
-                    type="radio"
-                    name="decision"
-                    value="bat"
-                    checked={decision === 'bat'}
-                    onChange={() => setDecision('bat')}
-                    className="w-4 h-4"
-                  />
-                  <span className="font-medium">Bat</span>
-                </label>
-                <label className="flex items-center gap-3 p-3 bg-neutral-900 rounded-lg cursor-pointer hover:bg-neutral-800 transition-colors">
-                  <input
-                    type="radio"
-                    name="decision"
-                    value="bowl"
-                    checked={decision === 'bowl'}
-                    onChange={() => setDecision('bowl')}
-                    className="w-4 h-4"
-                  />
-                  <span className="font-medium">Bowl</span>
-                </label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setDecision('bat')}
+                  className={`flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 transition-all ${
+                    decision === 'bat'
+                      ? 'border-amber-500 bg-amber-900/30 shadow-lg shadow-amber-500/20'
+                      : 'border-neutral-700 bg-neutral-900 hover:border-neutral-600'
+                  }`}
+                >
+                  <div className="text-6xl">🏏</div>
+                  <span className="font-semibold text-sm">Bat</span>
+                </button>
+
+                <button
+                  onClick={() => setDecision('bowl')}
+                  className={`flex flex-col items-center justify-center gap-3 p-6 rounded-lg border-2 transition-all ${
+                    decision === 'bowl'
+                      ? 'border-blue-500 bg-blue-900/30 shadow-lg shadow-blue-500/20'
+                      : 'border-neutral-700 bg-neutral-900 hover:border-neutral-600'
+                  }`}
+                >
+                  <div className="text-6xl">🎳</div>
+                  <span className="font-semibold text-sm">Bowl</span>
+                </button>
               </div>
 
-              <button
-                onClick={handleConfirm}
-                disabled={!decision}
-                className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
-              >
-                Confirm & Start Match
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleReToss}
+                  className="flex-1 px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-lg transition-colors"
+                >
+                  Re-do Toss
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  disabled={!decision}
+                  className="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Start Match
+                </button>
+              </div>
             </div>
           )}
         </div>
