@@ -30,7 +30,10 @@ const ScoringPage = () => {
   const [showStrikerPopup, setShowStrikerPopup] = useState(false);
   const [showNonStrikerPopup, setShowNonStrikerPopup] = useState(false);
   const [showBowlerPopup, setShowBowlerPopup] = useState(false);
-  const [overSummary, setOverSummary] = useState<{ overNumber: number; runsInOver: number; totalScore: number } | null>(null);
+  const [overSummaries, setOverSummaries] = useState<Array<{ overNumber: number; runsInOver: number; totalScore: number; nextStriker: Player | null; nextNonStriker: Player | null; bowler?: Player | null }>>([]);
+  const [inningsCompletePending, setInningsCompletePending] = useState(false);
+  const [completedFirstInningsData, setCompletedFirstInningsData] = useState<Innings | null>(null);
+  const [activeTab, setActiveTab] = useState<'scoring' | 'commentary'>('scoring');
 
   useEffect(() => {
     let isMounted = true;
@@ -187,6 +190,20 @@ const ScoringPage = () => {
     setStriker(null);
     setNonStriker(null);
     setBowler(null);
+    
+    // Reset over summaries for new innings
+    setOverSummaries([]);
+  };
+
+  const handleStartNextInnings = () => {
+    if (!completedFirstInningsData || !battingTeam || !bowlingTeam) return;
+    
+    // Save the completed first innings
+    handleInningsEnd(completedFirstInningsData);
+    
+    // Clear the pending state
+    setInningsCompletePending(false);
+    setCompletedFirstInningsData(null);
   };
 
   const processBall = (ball: Omit<Ball, 'ballNumber'>) => {
@@ -221,35 +238,12 @@ const ScoringPage = () => {
     }
 
     const newBalls = [...currentInnings.balls, newBall];
-    const validBalls = newBalls.filter(b => !b.isExtra || b.extraType !== 'no-ball');
+    const validBalls = newBalls.filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
     const overs = Math.floor(validBalls.length / 6);
     const ballsInOver = validBalls.length % 6;
 
     // Check if over is completed
-    const previousValidBalls = currentInnings.balls.filter(b => !b.isExtra || b.extraType !== 'no-ball');
-    const previousOvers = Math.floor(previousValidBalls.length / 6);
-    const overJustCompleted = overs > previousOvers && ballsInOver === 0;
-    
-    if (overJustCompleted) {
-      // Calculate runs scored in this over
-      const ballsInThisOver = validBalls.slice(previousValidBalls.length);
-      const runsInThisOver = ballsInThisOver.reduce((sum, b) => {
-        let ballRuns = b.runs;
-        if (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball')) {
-          ballRuns += 1;
-        }
-        return sum + ballRuns;
-      }, 0);
-      
-      setOverSummary({
-        overNumber: overs,
-        runsInOver: runsInThisOver,
-        totalScore: newScore
-      });
-      
-      // Auto-dismiss after 3 seconds
-      setTimeout(() => setOverSummary(null), 3000);
-    }
+    const previousValidBalls = currentInnings.balls.filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
 
     const isFirstInnings = !firstInnings;
     const currentBattingTeam = isFirstInnings ? battingTeam : bowlingTeam;
@@ -275,10 +269,13 @@ const ScoringPage = () => {
 
     if (inningsEnded) {
       if (isFirstInnings) {
-        // Save the completed first innings before moving to second innings
+        // Save the completed first innings but don't automatically switch
         const completedFirstInnings = { ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs };
         updateInnings(completedFirstInnings);
-        handleInningsEnd(completedFirstInnings);
+        setCompletedFirstInningsData(completedFirstInnings);
+        setInningsCompletePending(true);
+        // Disable further scoring
+        return;
       } else {
         // Only declare winner if we have valid first innings data
         if (firstInnings && firstInnings.score !== undefined) {
@@ -338,22 +335,56 @@ const ScoringPage = () => {
     // For normal ball: strike changes on odd runs or at end of over
     const isWide = newBall.isExtra && newBall.extraType === 'wide';
     const isNoBall = newBall.isExtra && newBall.extraType === 'no-ball';
+    const overJustCompletedForStrike = !isNoBall && ballsInOver === 0 && validBalls.length > 0;
 
     if (!isWide) {
       // Check if strike should change due to odd runs
       // For no-ball, use batsmanRuns (excludes the awarded +1 run)
       // For regular balls, use runsToAdd
       const runsForStrikeChange = isNoBall ? batsmanRuns : runsToAdd;
+      const oddRunsScored = runsForStrikeChange % 2 !== 0;
       
-      if (runsForStrikeChange % 2 !== 0) {
-        setStriker(tempNonStriker);
-        setNonStriker(tempStriker);
+      // Determine final striker and non-striker positions
+      let finalStriker = tempStriker;
+      let finalNonStriker = tempNonStriker;
+      
+      // Apply odd runs swap
+      if (oddRunsScored) {
+        finalStriker = tempNonStriker;
+        finalNonStriker = tempStriker;
       }
-      // Check if over is complete (and we have at least one ball)
-      // For no-ball, it doesn't complete an over, so skip this check
-      if (!isNoBall && ballsInOver === 0 && validBalls.length > 0) {
-        setStriker(tempNonStriker);
-        setNonStriker(tempStriker);
+      
+      // Apply end-of-over swap
+      if (overJustCompletedForStrike) {
+        const temp = finalStriker;
+        finalStriker = finalNonStriker;
+        finalNonStriker = temp;
+      }
+      
+      // Update striker and non-striker
+      setStriker(finalStriker);
+      setNonStriker(finalNonStriker);
+      
+      // Add over summary to persistent list if over just completed
+      if (overJustCompletedForStrike) {
+        setOverSummaries(prev => [...prev, {
+          overNumber: overs,
+          runsInOver: (newBalls.slice(previousValidBalls.length).reduce((sum, b) => {
+            let ballRuns = b.runs;
+            if (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball')) {
+              ballRuns += 1;
+            }
+            return sum + ballRuns;
+          }, 0)),
+          totalScore: newScore,
+          nextStriker: finalStriker,
+          nextNonStriker: finalNonStriker,
+          bowler: bowler
+        }]);
+      }
+      
+      // Reset bowler at end of over
+      if (overJustCompletedForStrike) {
         setBowler(null);
       }
     }
@@ -481,7 +512,7 @@ const ScoringPage = () => {
     );
   }
 
-  const validBalls = currentInnings.balls.filter(b => !b.isExtra || b.extraType === 'no-ball');
+  const validBalls = currentInnings.balls.filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
   const oversCompleted = Math.floor(validBalls.length / 6);
   const ballsInCurrentOver = validBalls.length % 6;
   const oversLabel = `${oversCompleted}.${ballsInCurrentOver}`;
@@ -516,21 +547,47 @@ const ScoringPage = () => {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-8 space-y-4">
-          {/* Over Summary Card */}
-          {overSummary && (
-            <div className="bg-gradient-to-r from-green-900/40 to-green-950/40 rounded-lg p-4 border border-green-700/50 animate-pulse">
-              <div className="text-center space-y-2">
-                <div className="text-sm font-semibold text-green-300">Over {overSummary.overNumber} completed</div>
+          {/* Innings Complete Button */}
+          {inningsCompletePending && (
+            <div className="bg-gradient-to-r from-green-900/50 to-green-950/50 rounded-lg p-4 border-2 border-green-600 space-y-3">
+              <div className="text-center">
+                <div className="text-sm font-semibold text-green-300 mb-2">First Innings Completed</div>
                 <div className="text-xs text-neutral-300">
-                  Runs scored in this Over: <span className="font-bold text-green-400">{overSummary.runsInOver}</span>
-                </div>
-                <div className="text-xs text-neutral-300">
-                  Total score of {battingTeam.name}: <span className="font-bold text-amber-400">{overSummary.totalScore}</span>
+                  {battingTeam?.name}: <span className="font-bold text-green-400">{currentInnings?.score}/{currentInnings?.wickets}</span> in {currentInnings?.overs} overs
                 </div>
               </div>
+              <button
+                onClick={handleStartNextInnings}
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-3 rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30"
+              >
+                Start Next Innings
+              </button>
             </div>
           )}
 
+          {/* Tabs */}
+          <div className="flex gap-2 border-b border-neutral-700">
+            <button
+              onClick={() => setActiveTab('scoring')}
+              className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'scoring' 
+                ? 'text-amber-400 border-b-2 border-amber-400' 
+                : 'text-neutral-400 hover:text-neutral-300'}`}
+            >
+              Scoring
+            </button>
+            <button
+              onClick={() => setActiveTab('commentary')}
+              className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === 'commentary' 
+                ? 'text-blue-400 border-b-2 border-blue-400' 
+                : 'text-neutral-400 hover:text-neutral-300'}`}
+            >
+              Commentary
+            </button>
+          </div>
+
+          {/* Scoring Tab Content */}
+          {activeTab === 'scoring' && (
+            <>
           {/* Score Card */}
           <div className="bg-neutral-900 rounded-lg p-4 text-center space-y-1">
             <div className="text-xs text-neutral-400">{battingTeam.name} batting</div>
@@ -543,7 +600,7 @@ const ScoringPage = () => {
             <div className="flex-1">
               <button
                 onClick={() => setShowStrikerPopup(true)}
-                disabled={matchWinner !== null}
+                disabled={matchWinner !== null || inningsCompletePending}
                 className={`w-full bg-gradient-to-br from-amber-900/30 to-amber-950/50 rounded-xl p-4 border-2 transition-all transform hover:scale-105 ${striker ? 'border-amber-400 shadow-lg shadow-amber-500/20' : 'border-amber-700/50 hover:border-amber-600'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
               >
                 <div className="space-y-2">
@@ -570,7 +627,7 @@ const ScoringPage = () => {
             <div className="flex-1">
               <button
                 onClick={() => setShowNonStrikerPopup(true)}
-                disabled={matchWinner !== null}
+                disabled={matchWinner !== null || inningsCompletePending}
                 className={`w-full bg-gradient-to-br from-blue-900/30 to-blue-950/50 rounded-xl p-4 border-2 transition-all transform hover:scale-105 ${nonStriker ? 'border-blue-400 shadow-lg shadow-blue-500/20' : 'border-blue-700/50 hover:border-blue-600'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
               >
                 <div className="space-y-2">
@@ -600,7 +657,7 @@ const ScoringPage = () => {
           <div>
             <button
               onClick={() => setShowBowlerPopup(true)}
-              disabled={matchWinner !== null}
+              disabled={matchWinner !== null || inningsCompletePending}
               className={`w-full bg-gradient-to-br from-red-900/30 to-red-950/50 rounded-xl p-4 border-2 transition-all transform hover:scale-105 ${bowler ? 'border-red-400 shadow-lg shadow-red-500/20' : 'border-red-700/50 hover:border-red-600'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
               <div className="space-y-2">
@@ -639,14 +696,14 @@ const ScoringPage = () => {
                 const ballsInCurrentOver: typeof currentInnings.balls = [];
 
                 for (const ball of currentInnings.balls) {
-                  // Count legal balls (non-wide, or no-ball which counts as legal for over completion)
-                  if (!ball.isExtra || ball.extraType === 'no-ball') {
+                  // Count legal balls (exclude both wide and no-ball)
+                  if (!ball.isExtra || (ball.extraType !== 'wide' && ball.extraType !== 'no-ball')) {
                     if (legalBallCount >= currentOverStartLegalBall) {
                       ballsInCurrentOver.push(ball);
                     }
                     legalBallCount++;
                   } else {
-                    // Wide balls don't count as legal balls but belong to the over
+                    // Wide and no-ball balls don't count as legal balls but belong to the over
                     if (legalBallCount >= currentOverStartLegalBall) {
                       ballsInCurrentOver.push(ball);
                     }
@@ -681,7 +738,11 @@ const ScoringPage = () => {
 
           {/* Scoring Controls */}
           <div>
-            {!striker || !bowler ? (
+            {inningsCompletePending ? (
+              <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg text-center text-xs text-neutral-400">
+                Innings Complete - Click "Start Next Innings" to continue
+              </div>
+            ) : !striker || !bowler ? (
               <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg text-center text-xs text-neutral-400">
                 Select Striker and Bowler to start scoring
               </div>
@@ -690,47 +751,104 @@ const ScoringPage = () => {
                 onScore={handleScore}
                 onExtra={handleExtra}
                 onWicket={handleWicket}
-                isEnabled={!!striker && !!bowler}
+                isEnabled={!!striker && !!bowler && !inningsCompletePending}
               />
             )}
           </div>
+            </>
+          )}
 
-          {/* Commentary */}
-          <div>
-            <div className="text-xs text-neutral-400 uppercase mb-2">Commentary</div>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {currentInnings.balls.length === 0 ? (
-                <div className="text-sm text-neutral-500">No balls bowled yet</div>
-              ) : (
-                currentInnings.balls
-                  .slice()
-                  .reverse()
-                  .slice(0, 15)
-                  .map((ball, idx) => {
-                    // Calculate over and ball number from valid balls count
-                    const validBallsUpToThisBall = currentInnings.balls
-                      .slice(0, currentInnings.balls.length - idx)
-                      .filter(b => !b.isExtra || b.extraType !== 'no-ball');
-                    const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
-                    const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
+          {/* Commentary Tab Content */}
+          {activeTab === 'commentary' && (
+            <div>
+              <div className="space-y-2">
+                {currentInnings.balls.length === 0 ? (
+                  <div className="text-sm text-neutral-500">No balls bowled yet</div>
+                ) : (
+                  (() => {
+                    // Build final items list with balls and summaries in correct order
+                    const finalItems: Array<{ type: 'ball' | 'overSummary'; ball?: Ball; summary?: typeof overSummaries[0]; ballIdx?: number; overNum?: number }> = [];
+                    
+                    // Process each ball and add corresponding summary after the last ball of each over
+                    currentInnings.balls.forEach((ball, idx) => {
+                      const validBallsUpToThisBall = currentInnings.balls
+                        .slice(0, idx + 1)
+                        .filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
+                      const overNum = Math.floor((validBallsUpToThisBall.length - 1) / 6);
+                      const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
+                      
+                      // Add the ball
+                      finalItems.push({ type: 'ball', ball, ballIdx: idx, overNum });
+                      
+                      // Check if this is the last ball of an over (6th legal ball)
+                      if (ballInOver === 6) {
+                        // Add the over summary after the 6th ball
+                        const summary = overSummaries.find(s => s.overNumber === overNum);
+                        if (summary) {
+                          finalItems.push({ type: 'overSummary', summary, overNum });
+                        }
+                      }
+                    });
+                    
+                    // Reverse for display (newest at top)
+                    const displayItems = finalItems.slice().reverse();
+                    
+                    // Limit to 50 items for display in commentary tab
+                    return displayItems.slice(0, 50).map((item) => {
+                      if (item.type === 'overSummary' && item.summary) {
+                        return (
+                          <div key={`summary-${item.summary.overNumber}`} className="bg-neutral-900/60 rounded-lg p-3 border border-neutral-700/50">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="text-sm font-semibold text-blue-300">Over {item.summary.overNumber} Summary</div>
+                                <div className="text-xs text-green-400 font-bold">{item.summary.runsInOver} runs</div>
+                              </div>
+                              <div className="text-xs text-neutral-400">
+                                Total: <span className="text-amber-400 font-semibold">{item.summary.totalScore}/{currentInnings?.wickets}</span>
+                              </div>
+                              <div className="flex gap-3 text-xs">
+                                <div className="flex-1 bg-amber-900/30 rounded px-2 py-1.5 border border-amber-700/30">
+                                  <div className="text-amber-300 font-semibold">🏏 {item.summary.nextStriker?.name || 'Unknown'}</div>
+                                  <div className="text-neutral-500 text-xs">Next Striker</div>
+                                </div>
+                                <div className="flex-1 bg-blue-900/30 rounded px-2 py-1.5 border border-blue-700/30">
+                                  <div className="text-blue-300 font-semibold">🏃 {item.summary.nextNonStriker?.name || 'Unknown'}</div>
+                                  <div className="text-neutral-500 text-xs">Next Non-Striker</div>
+                                </div>
+                                <div className="flex-1 bg-red-900/30 rounded px-2 py-1.5 border border-red-700/30">
+                                  <div className="text-red-300 font-semibold">🎯 {item.summary.bowler?.name || 'Unknown'}</div>
+                                  <div className="text-neutral-500 text-xs">Bowler</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      } else if (item.type === 'ball' && item.ball && item.ballIdx !== undefined) {
+                        const validBallsUpToThisBall = currentInnings.balls
+                          .slice(0, item.ballIdx + 1)
+                          .filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
+                        const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
+                        const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
 
-                    // Create players map for name lookup
-                    const playersMap = new Map<string, string>();
-                    players.forEach(p => playersMap.set(p.id, p.name));
+                        const playersMap = new Map<string, string>();
+                        players.forEach(p => playersMap.set(p.id, p.name));
 
-                    return (
-                      <BallCommentary
-                        key={idx}
-                        ball={ball}
-                        overNumber={overNumber}
-                        ballInOver={ballInOver}
-                        playersMap={playersMap}
-                      />
-                    );
-                  })
-              )}
+                        return (
+                          <BallCommentary
+                            key={`ball-${item.ballIdx}`}
+                            ball={item.ball}
+                            overNumber={overNumber}
+                            ballInOver={ballInOver}
+                            playersMap={playersMap}
+                          />
+                        );
+                      }
+                    });
+                  })()
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Striker Selection Popup */}
