@@ -30,7 +30,7 @@ const ScoringPage = () => {
   const [showStrikerPopup, setShowStrikerPopup] = useState(false);
   const [showNonStrikerPopup, setShowNonStrikerPopup] = useState(false);
   const [showBowlerPopup, setShowBowlerPopup] = useState(false);
-  const [overSummaries, setOverSummaries] = useState<Array<{ overNumber: number; runsInOver: number; totalScore: number; nextStriker: Player | null; nextNonStriker: Player | null; bowler?: Player | null }>>([]);
+  const [overSummaries, setOverSummaries] = useState<Array<{ overNumber: number; runsInOver: number; totalScore: number; nextStriker: Player | null; nextNonStriker: Player | null; bowler?: Player | null; ballsInOver: Ball[] }>>([]);
   const [inningsCompletePending, setInningsCompletePending] = useState(false);
   const [completedFirstInningsData, setCompletedFirstInningsData] = useState<Innings | null>(null);
   const [activeTab, setActiveTab] = useState<'scoring' | 'commentary'>('scoring');
@@ -258,9 +258,6 @@ const ScoringPage = () => {
     const overs = Math.floor(validBalls.length / 6);
     const ballsInOver = validBalls.length % 6;
 
-    // Check if over is completed
-    const previousValidBalls = currentInnings.balls.filter(b => !b.isExtra || (b.isExtra && b.extraType !== 'wide' && b.extraType !== 'no-ball'));
-
     const isFirstInnings = !firstInnings;
     const currentBattingTeam = isFirstInnings ? battingTeam : bowlingTeam;
 
@@ -284,6 +281,37 @@ const ScoringPage = () => {
     const inningsEnded = (wicketsLost || oversCompleted) && validBalls.length > 0;
 
     if (inningsEnded) {
+      // Add summary for the last completed over if it exists
+      if (ballsInOver === 0 && validBalls.length > 0) {
+        const overStartIndex = (overs - 1) * 6;
+        let legalBallCounter = 0;
+        let overBallStartIndex = -1;
+
+        for (let i = 0; i < newBalls.length; i++) {
+          const ball = newBalls[i];
+          if (!ball.isExtra || (ball.isExtra && ball.extraType !== 'wide' && ball.extraType !== 'no-ball')) {
+            if (legalBallCounter === overStartIndex) {
+              overBallStartIndex = i;
+              break;
+            }
+            legalBallCounter++;
+          }
+        }
+
+        const ballsInOverFromEnd = overBallStartIndex !== -1 ? newBalls.slice(overBallStartIndex) : [];
+        const runsInLastOver = ballsInOverFromEnd.reduce((sum, b) => sum + b.runs + (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball') ? 1 : 0), 0);
+
+        setOverSummaries(prev => [...prev, {
+          overNumber: overs,
+          runsInOver: runsInLastOver,
+          totalScore: newScore,
+          nextStriker: striker || tempStriker,
+          nextNonStriker: nonStriker || tempNonStriker,
+          bowler: bowler,
+          ballsInOver: ballsInOverFromEnd
+        }]);
+      }
+      
       if (isFirstInnings) {
         // Save the completed first innings but don't automatically switch
         const completedFirstInnings = { ...currentInnings, score: newScore, wickets: newWickets, balls: newBalls, overs };
@@ -383,19 +411,32 @@ const ScoringPage = () => {
       
       // Add over summary to persistent list if over just completed
       if (overJustCompletedForStrike) {
+        const overStartIndex = (overs - 1) * 6;
+        let legalBallCounter = 0;
+        let overBallStartIndex = -1;
+
+        for (let i = 0; i < newBalls.length; i++) {
+          const ball = newBalls[i];
+          if (!ball.isExtra || (ball.isExtra && ball.extraType !== 'wide' && ball.extraType !== 'no-ball')) {
+            if (legalBallCounter === overStartIndex) {
+              overBallStartIndex = i;
+              break;
+            }
+            legalBallCounter++;
+          }
+        }
+
+        const ballsInOver = overBallStartIndex !== -1 ? newBalls.slice(overBallStartIndex) : [];
+        const runsInThisOver = ballsInOver.reduce((sum, b) => sum + b.runs + (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball') ? 1 : 0), 0);
+
         setOverSummaries(prev => [...prev, {
           overNumber: overs,
-          runsInOver: (newBalls.slice(previousValidBalls.length).reduce((sum, b) => {
-            let ballRuns = b.runs;
-            if (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball')) {
-              ballRuns += 1;
-            }
-            return sum + ballRuns;
-          }, 0)),
+          runsInOver: runsInThisOver,
           totalScore: newScore,
           nextStriker: finalStriker,
           nextNonStriker: finalNonStriker,
-          bowler: bowler
+          bowler: bowler,
+          ballsInOver: ballsInOver
         }]);
       }
       
@@ -632,7 +673,7 @@ const ScoringPage = () => {
                         <span className="text-neutral-400"> runs</span>
                       </div>
                       <div className="bg-neutral-700/50 rounded px-2 py-1">
-                        <span className="text-neutral-300">{currentInnings.balls.filter(b => b.strikerId === striker.id).length}</span>
+                        <span className="text-neutral-300">{currentInnings.balls.filter(b => b.strikerId === striker.id && b.extraType !== 'wide').length}</span>
                         <span className="text-neutral-500"> balls</span>
                       </div>
                     </div>
@@ -659,7 +700,7 @@ const ScoringPage = () => {
                         <span className="text-neutral-400"> runs</span>
                       </div>
                       <div className="bg-neutral-700/50 rounded px-2 py-1">
-                        <span className="text-neutral-300">{currentInnings.balls.filter(b => b.strikerId === nonStriker.id).length}</span>
+                        <span className="text-neutral-300">{currentInnings.balls.filter(b => b.strikerId === nonStriker.id && b.extraType !== 'wide').length}</span>
                         <span className="text-neutral-500"> balls</span>
                       </div>
                     </div>
@@ -771,6 +812,66 @@ const ScoringPage = () => {
               />
             )}
           </div>
+
+          {/* Over Summaries */}
+          {overSummaries.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs text-neutral-400 uppercase mb-2">Over Summaries</div>
+              {[...overSummaries].reverse().map((summary) => {
+                const batsmanStats = new Map<string, { runs: number; balls: number; name: string }>();
+                summary.ballsInOver.forEach(ball => {
+                  if (!batsmanStats.has(ball.strikerId)) {
+                    const player = players.find(p => p.id === ball.strikerId);
+                    batsmanStats.set(ball.strikerId, { runs: 0, balls: 0, name: player?.name || 'Unknown' });
+                  }
+                  const stats = batsmanStats.get(ball.strikerId)!;
+                  stats.runs += ball.runs;
+                  if (!ball.isExtra || (ball.isExtra && ball.extraType !== 'wide' && ball.extraType !== 'no-ball')) {
+                    stats.balls += 1;
+                  }
+                });
+
+                const wides = summary.ballsInOver.filter(b => b.isExtra && b.extraType === 'wide').length;
+                const noBalls = summary.ballsInOver.filter(b => b.isExtra && b.extraType === 'no-ball').length;
+                const runsFromExtras = summary.ballsInOver
+                  .filter(b => b.isExtra)
+                  .reduce((sum, b) => sum + b.runs + (b.extraType === 'wide' || b.extraType === 'no-ball' ? 1 : 0), 0);
+                const runsFromBat = summary.runsInOver - runsFromExtras;
+
+                return (
+                  <div key={`summary-${summary.overNumber}`} className="bg-neutral-900/60 rounded-lg p-3 border border-neutral-700/50">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-semibold text-blue-300">Over {summary.overNumber} Summary</div>
+                        <div className="text-xs text-green-400 font-bold">{summary.runsInOver} runs ({runsFromBat} bat, {runsFromExtras} extra)</div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {Array.from(batsmanStats.values()).map((stat, idx) => (
+                          <div key={idx} className="text-xs text-neutral-300">
+                            <span className="text-amber-300 font-semibold">{stat.name}</span> scored <span className="text-green-400 font-semibold">{stat.runs} runs</span> and faced <span className="text-blue-400 font-semibold">{stat.balls} balls</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {(wides > 0 || noBalls > 0) && (
+                        <div className="text-xs text-neutral-400 border-t border-neutral-700/50 pt-2">
+                          <span className="text-neutral-300">Extras in this over: </span>
+                          {wides > 0 && <span className="text-orange-400">{wides} wide{wides > 1 ? 's' : ''}</span>}
+                          {wides > 0 && noBalls > 0 && <span className="text-neutral-500">, </span>}
+                          {noBalls > 0 && <span className="text-red-400">{noBalls} no-ball{noBalls > 1 ? 's' : ''}</span>}
+                        </div>
+                      )}
+
+                      <div className="text-xs text-neutral-500 border-t border-neutral-700/50 pt-2">
+                        <span className="text-neutral-400">{summary.nextStriker?.name || 'Unknown'}</span> will take the next strike
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
             </>
           )}
 
@@ -782,86 +883,32 @@ const ScoringPage = () => {
                   <div className="text-sm text-neutral-500">No balls bowled yet</div>
                 ) : (
                   (() => {
-                    // Build final items list with balls and summaries in correct order
-                    const finalItems: Array<{ type: 'ball' | 'overSummary'; ball?: Ball; summary?: typeof overSummaries[0]; ballIdx?: number; overNum?: number; sortKey: number }> = [];
-                    let sortKey = 0;
-                    
-                    // Process each ball and add corresponding summary after the last ball of each over
-                    const addedSummaries = new Set<number>();
-                    
-                    currentInnings.balls.forEach((ball, idx) => {
-                      const validBallsUpToThisBall = currentInnings.balls
-                        .slice(0, idx + 1)
-                        .filter(b => !b.isExtra || (b.isExtra && b.extraType !== 'wide' && b.extraType !== 'no-ball'));
-                      const overNum = Math.floor((validBallsUpToThisBall.length - 1) / 6);
-                      const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
-                      
-                      // Add the ball
-                      finalItems.push({ type: 'ball', ball, ballIdx: idx, overNum, sortKey: sortKey++ });
-                      
-                      // Check if this is the 6th ball of an over (over just completed)
-                      if (ballInOver === 6) {
-                        const summary = overSummaries.find(s => s.overNumber === overNum);
-                        if (summary && !addedSummaries.has(overNum)) {
-                          finalItems.push({ type: 'overSummary', summary, overNum, sortKey: sortKey++ });
-                          addedSummaries.add(overNum);
-                        }
-                      }
-                    });
-                    
-                    // Reverse for display (newest at top)
-                    const displayItems = finalItems.slice().reverse();
+                    // Display balls in reverse order (newest at top)
+                    const displayBalls = [...currentInnings.balls].reverse();
                     
                     // Limit to 50 items for display in commentary tab
-                    return displayItems.slice(0, 50).map((item) => {
-                      if (item.type === 'overSummary' && item.summary) {
-                        return (
-                          <div key={`summary-${item.summary.overNumber}`} className="bg-neutral-900/60 rounded-lg p-3 border border-neutral-700/50">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm font-semibold text-blue-300">Over {item.summary.overNumber} Summary</div>
-                                <div className="text-xs text-green-400 font-bold">{item.summary.runsInOver} runs</div>
-                              </div>
-                              <div className="text-xs text-neutral-400">
-                                Total: <span className="text-amber-400 font-semibold">{item.summary.totalScore}/{currentInnings?.wickets}</span>
-                              </div>
-                              <div className="flex gap-3 text-xs">
-                                <div className="flex-1 bg-amber-900/30 rounded px-2 py-1.5 border border-amber-700/30">
-                                  <div className="text-amber-300 font-semibold">🏏 {item.summary.nextStriker?.name || 'Unknown'}</div>
-                                  <div className="text-neutral-500 text-xs">Next Striker</div>
-                                </div>
-                                <div className="flex-1 bg-blue-900/30 rounded px-2 py-1.5 border border-blue-700/30">
-                                  <div className="text-blue-300 font-semibold">🏃 {item.summary.nextNonStriker?.name || 'Unknown'}</div>
-                                  <div className="text-neutral-500 text-xs">Next Non-Striker</div>
-                                </div>
-                                <div className="flex-1 bg-red-900/30 rounded px-2 py-1.5 border border-red-700/30">
-                                  <div className="text-red-300 font-semibold">🎯 {item.summary.bowler?.name || 'Unknown'}</div>
-                                  <div className="text-neutral-500 text-xs">Bowler</div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      } else if (item.type === 'ball' && item.ball && item.ballIdx !== undefined) {
-                        const validBallsUpToThisBall = currentInnings.balls
-                          .slice(0, item.ballIdx + 1)
-                          .filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
-                        const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
-                        const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
+                    return displayBalls.slice(0, 50).map((ball, idx) => {
+                      // Calculate the actual ball index in the original array
+                      const actualIdx = currentInnings.balls.length - 1 - idx;
+                      
+                      const validBallsUpToThisBall = currentInnings.balls
+                        .slice(0, actualIdx + 1)
+                        .filter(b => !b.isExtra || (b.isExtra && b.extraType !== 'wide' && b.extraType !== 'no-ball'));
+                      const overNumber = Math.floor((validBallsUpToThisBall.length - 1) / 6);
+                      const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
 
-                        const playersMap = new Map<string, string>();
-                        players.forEach(p => playersMap.set(p.id, p.name));
+                      const playersMap = new Map<string, string>();
+                      players.forEach(p => playersMap.set(p.id, p.name));
 
-                        return (
-                          <BallCommentary
-                            key={`ball-${item.ballIdx}`}
-                            ball={item.ball}
-                            overNumber={overNumber}
-                            ballInOver={ballInOver}
-                            playersMap={playersMap}
-                          />
-                        );
-                      }
+                      return (
+                        <BallCommentary
+                          key={`ball-${actualIdx}`}
+                          ball={ball}
+                          overNumber={overNumber}
+                          ballInOver={ballInOver}
+                          playersMap={playersMap}
+                        />
+                      );
                     });
                   })()
                 )}
