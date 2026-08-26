@@ -119,6 +119,22 @@ const ScoringPage = () => {
               const firstInningsData = inningsSnap.docs[0].data() as Innings;
               firstInningsData.id = inningsSnap.docs[0].id;
               if (isMounted) setFirstInnings(firstInningsData);
+              
+              // If we're on the second innings, swap batting and bowling teams
+              const currentInningsTeamId = inningsData.teamId;
+              const firstInningsTeamId = firstInningsData.teamId;
+              
+              if (currentInningsTeamId !== firstInningsTeamId) {
+                // Second innings is being played, swap teams
+                const tempTeam = battingFirstTeam;
+                if (isMounted) {
+                  setBattingTeam(bowlingFirstTeam);
+                  setBowlingTeam(tempTeam);
+                  // Mark first innings as complete
+                  setInningsCompletePending(true);
+                  setCompletedFirstInningsData(firstInningsData);
+                }
+              }
             }
           }
         })();
@@ -238,12 +254,12 @@ const ScoringPage = () => {
     }
 
     const newBalls = [...currentInnings.balls, newBall];
-    const validBalls = newBalls.filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
+    const validBalls = newBalls.filter(b => !b.isExtra || (b.isExtra && b.extraType !== 'wide' && b.extraType !== 'no-ball'));
     const overs = Math.floor(validBalls.length / 6);
     const ballsInOver = validBalls.length % 6;
 
     // Check if over is completed
-    const previousValidBalls = currentInnings.balls.filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
+    const previousValidBalls = currentInnings.balls.filter(b => !b.isExtra || (b.isExtra && b.extraType !== 'wide' && b.extraType !== 'no-ball'));
 
     const isFirstInnings = !firstInnings;
     const currentBattingTeam = isFirstInnings ? battingTeam : bowlingTeam;
@@ -767,25 +783,28 @@ const ScoringPage = () => {
                 ) : (
                   (() => {
                     // Build final items list with balls and summaries in correct order
-                    const finalItems: Array<{ type: 'ball' | 'overSummary'; ball?: Ball; summary?: typeof overSummaries[0]; ballIdx?: number; overNum?: number }> = [];
+                    const finalItems: Array<{ type: 'ball' | 'overSummary'; ball?: Ball; summary?: typeof overSummaries[0]; ballIdx?: number; overNum?: number; sortKey: number }> = [];
+                    let sortKey = 0;
                     
                     // Process each ball and add corresponding summary after the last ball of each over
+                    const addedSummaries = new Set<number>();
+                    
                     currentInnings.balls.forEach((ball, idx) => {
                       const validBallsUpToThisBall = currentInnings.balls
                         .slice(0, idx + 1)
-                        .filter(b => !b.isExtra || (b.extraType !== 'wide' && b.extraType !== 'no-ball'));
+                        .filter(b => !b.isExtra || (b.isExtra && b.extraType !== 'wide' && b.extraType !== 'no-ball'));
                       const overNum = Math.floor((validBallsUpToThisBall.length - 1) / 6);
                       const ballInOver = ((validBallsUpToThisBall.length - 1) % 6) + 1;
                       
                       // Add the ball
-                      finalItems.push({ type: 'ball', ball, ballIdx: idx, overNum });
+                      finalItems.push({ type: 'ball', ball, ballIdx: idx, overNum, sortKey: sortKey++ });
                       
-                      // Check if this is the last ball of an over (6th legal ball)
+                      // Check if this is the 6th ball of an over (over just completed)
                       if (ballInOver === 6) {
-                        // Add the over summary after the 6th ball
                         const summary = overSummaries.find(s => s.overNumber === overNum);
-                        if (summary) {
-                          finalItems.push({ type: 'overSummary', summary, overNum });
+                        if (summary && !addedSummaries.has(overNum)) {
+                          finalItems.push({ type: 'overSummary', summary, overNum, sortKey: sortKey++ });
+                          addedSummaries.add(overNum);
                         }
                       }
                     });

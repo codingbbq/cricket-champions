@@ -137,7 +137,33 @@ const MatchSummaryPage = () => {
   const teamA = teams[teamIds[0]];
   const teamB = teams[teamIds[1]];
 
-  const currentInnings = innings[selectedInnings];
+  // Determine which team batted first based on toss
+  const getFirstBattingTeamId = () => {
+    if (!match.toss) return teamIds[0]; // Default to first team if no toss info
+    
+    const tossWinnerId = match.toss.winnerId === 'teamA' ? teamIds[0] : teamIds[1];
+    
+    if (match.toss.choice === 'bat') {
+      return tossWinnerId; // Toss winner chose to bat, so they bat first
+    } else {
+      // Toss winner chose to bowl, so the other team bats first
+      return tossWinnerId === teamIds[0] ? teamIds[1] : teamIds[0];
+    }
+  };
+
+  const firstBattingTeamId = getFirstBattingTeamId();
+  
+  // Reorder innings based on batting order
+  const orderedInnings = innings.length > 0 
+    ? innings.sort((a, b) => {
+        // Team that batted first should be at index 0
+        if (a.teamId === firstBattingTeamId) return -1;
+        if (b.teamId === firstBattingTeamId) return 1;
+        return 0;
+      })
+    : [];
+
+  const currentInnings = orderedInnings[selectedInnings];
   
   // Determine batting and bowling teams based on innings
   let battingTeam: Team | undefined;
@@ -294,8 +320,16 @@ const MatchSummaryPage = () => {
           ) : null}
 
           {/* Match Info */}
-          <div className="text-lg font-bold text-neutral-500">
-            {match.venue} · {new Date(match.date.seconds ? match.date.seconds * 1000 : match.date).toLocaleDateString()} · {match.overs} overs
+          <div>
+            <div className="text-lg font-bold text-neutral-500">
+              {match.venue} · {new Date(match.date.seconds ? match.date.seconds * 1000 : match.date).toLocaleDateString()} · {match.overs} overs
+            </div>
+            {/* Toss Information */}
+            {match.toss && (
+              <div className="text-xs text-neutral-400 mt-1">
+                🪙 {match.toss.winnerId === 'teamA' ? teams[Object.keys(teams)[0]]?.name : teams[Object.keys(teams)[1]]?.name} won toss and chose to {match.toss.choice === 'bat' ? 'bat' : 'bowl'}
+              </div>
+            )}
           </div>
           
           {/* Match Result */}
@@ -333,10 +367,10 @@ const MatchSummaryPage = () => {
           )}
 
           {/* Innings Tabs */}
-          {innings.length > 0 && (
+          {orderedInnings.length > 0 && (
             <div className="border-b border-neutral-800">
               <div className="flex gap-0">
-                {innings.map((_, idx) => (
+                {orderedInnings.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedInnings(idx)}
@@ -346,7 +380,7 @@ const MatchSummaryPage = () => {
                         : 'border-transparent text-neutral-400 hover:text-neutral-300'
                     }`}
                   >
-                    {teams[innings[idx].teamId]?.name} Innings
+                    {teams[orderedInnings[idx].teamId]?.name} Innings
                   </button>
                 ))}
               </div>
