@@ -118,7 +118,6 @@ const ScoringPage = () => {
             // Load the latest innings (last one added, which is the current one being played)
             const inningsData = inningsSnap.docs[inningsSnap.docs.length - 1].data() as Innings;
             inningsData.id = inningsSnap.docs[inningsSnap.docs.length - 1].id;
-            if (isMounted) setCurrentInnings(inningsData);
             
             // If there's a first innings, set it
             if (inningsSnap.docs.length > 1) {
@@ -136,10 +135,31 @@ const ScoringPage = () => {
                 if (isMounted) {
                   setBattingTeam(bowlingFirstTeam);
                   setBowlingTeam(tempTeam);
+                  setCurrentInnings(inningsData);
                   // Mark first innings as complete
                   setInningsCompletePending(true);
                   setCompletedFirstInningsData(firstInningsData);
                 }
+              } else {
+                // Same team, just set current innings
+                if (isMounted) setCurrentInnings(inningsData);
+              }
+            } else {
+              // Only one innings exists - check if it's complete
+              const battingTeamForCheck = inningsData.teamId === battingFirstTeam.id ? battingFirstTeam : bowlingFirstTeam;
+              const maxWickets = matchData.lastManBatting ? battingTeamForCheck.players.length : Math.max(1, battingTeamForCheck.players.length - 1);
+              const isComplete = inningsData.overs >= matchData.overs || inningsData.wickets >= maxWickets;
+              
+              if (isComplete) {
+                // First innings is complete but second hasn't started yet
+                if (isMounted) {
+                  setCurrentInnings(inningsData);
+                  setInningsCompletePending(true);
+                  setCompletedFirstInningsData(inningsData);
+                }
+              } else {
+                // First innings is still in progress
+                if (isMounted) setCurrentInnings(inningsData);
               }
             }
           }
