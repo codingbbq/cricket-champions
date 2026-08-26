@@ -34,6 +34,7 @@ const ScoringPage = () => {
   const [inningsCompletePending, setInningsCompletePending] = useState(false);
   const [completedFirstInningsData, setCompletedFirstInningsData] = useState<Innings | null>(null);
   const [activeTab, setActiveTab] = useState<'scoring' | 'commentary'>('scoring');
+  const [overCompletePending, setOverCompletePending] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -286,19 +287,38 @@ const ScoringPage = () => {
         const overStartIndex = (overs - 1) * 6;
         let legalBallCounter = 0;
         let overBallStartIndex = -1;
+        let overBallEndIndex = -1;
+        let foundStart = false;
 
         for (let i = 0; i < newBalls.length; i++) {
           const ball = newBalls[i];
-          if (!ball.isExtra || (ball.isExtra && ball.extraType !== 'wide' && ball.extraType !== 'no-ball')) {
-            if (legalBallCounter === overStartIndex) {
-              overBallStartIndex = i;
+          const isLegal = !ball.isExtra || (ball.isExtra && ball.extraType !== 'wide' && ball.extraType !== 'no-ball');
+          
+          // Mark when we've reached the over's starting point
+          if (isLegal && legalBallCounter === overStartIndex && !foundStart) {
+            foundStart = true;
+            // Go back to capture any extras before this legal ball
+            overBallStartIndex = i;
+            for (let j = i - 1; j >= 0; j--) {
+              const prevBall = newBalls[j];
+              const prevIsLegal = !prevBall.isExtra || (prevBall.isExtra && prevBall.extraType !== 'wide' && prevBall.extraType !== 'no-ball');
+              if (prevIsLegal) {
+                break; // Stop when we hit a legal ball from the previous over
+              }
+              overBallStartIndex = j; // Include this extra
+            }
+          }
+          
+          if (isLegal) {
+            if (legalBallCounter === overStartIndex + 6) {
+              overBallEndIndex = i;
               break;
             }
             legalBallCounter++;
           }
         }
 
-        const ballsInOverFromEnd = overBallStartIndex !== -1 ? newBalls.slice(overBallStartIndex) : [];
+        const ballsInOverFromEnd = overBallStartIndex !== -1 ? newBalls.slice(overBallStartIndex, overBallEndIndex !== -1 ? overBallEndIndex : newBalls.length) : [];
         const runsInLastOver = ballsInOverFromEnd.reduce((sum, b) => sum + b.runs + (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball') ? 1 : 0), 0);
 
         setOverSummaries(prev => [...prev, {
@@ -414,19 +434,38 @@ const ScoringPage = () => {
         const overStartIndex = (overs - 1) * 6;
         let legalBallCounter = 0;
         let overBallStartIndex = -1;
+        let overBallEndIndex = -1;
+        let foundStart = false;
 
         for (let i = 0; i < newBalls.length; i++) {
           const ball = newBalls[i];
-          if (!ball.isExtra || (ball.isExtra && ball.extraType !== 'wide' && ball.extraType !== 'no-ball')) {
-            if (legalBallCounter === overStartIndex) {
-              overBallStartIndex = i;
+          const isLegal = !ball.isExtra || (ball.isExtra && ball.extraType !== 'wide' && ball.extraType !== 'no-ball');
+          
+          // Mark when we've reached the over's starting point
+          if (isLegal && legalBallCounter === overStartIndex && !foundStart) {
+            foundStart = true;
+            // Go back to capture any extras before this legal ball
+            overBallStartIndex = i;
+            for (let j = i - 1; j >= 0; j--) {
+              const prevBall = newBalls[j];
+              const prevIsLegal = !prevBall.isExtra || (prevBall.isExtra && prevBall.extraType !== 'wide' && prevBall.extraType !== 'no-ball');
+              if (prevIsLegal) {
+                break; // Stop when we hit a legal ball from the previous over
+              }
+              overBallStartIndex = j; // Include this extra
+            }
+          }
+          
+          if (isLegal) {
+            if (legalBallCounter === overStartIndex + 6) {
+              overBallEndIndex = i;
               break;
             }
             legalBallCounter++;
           }
         }
 
-        const ballsInOver = overBallStartIndex !== -1 ? newBalls.slice(overBallStartIndex) : [];
+        const ballsInOver = overBallStartIndex !== -1 ? newBalls.slice(overBallStartIndex, overBallEndIndex !== -1 ? overBallEndIndex : newBalls.length) : [];
         const runsInThisOver = ballsInOver.reduce((sum, b) => sum + b.runs + (b.isExtra && (b.extraType === 'wide' || b.extraType === 'no-ball') ? 1 : 0), 0);
 
         setOverSummaries(prev => [...prev, {
@@ -438,11 +477,9 @@ const ScoringPage = () => {
           bowler: bowler,
           ballsInOver: ballsInOver
         }]);
-      }
-      
-      // Reset bowler at end of over
-      if (overJustCompletedForStrike) {
-        setBowler(null);
+        
+        // Mark over as pending completion instead of auto-completing
+        setOverCompletePending(true);
       }
     }
 
@@ -517,6 +554,12 @@ const ScoringPage = () => {
       wicketType: 'bowled',
       timestamp: new Date()
     });
+  };
+
+  const handleCompleteOver = () => {
+    // Reset bowler and clear over completion pending state
+    setBowler(null);
+    setOverCompletePending(false);
   };
 
   if (matchWinner) {
@@ -743,32 +786,30 @@ const ScoringPage = () => {
           <div>
             <div className="text-xs text-neutral-400 uppercase mb-2">This over</div>
             <div className="flex gap-1.5 flex-wrap">
-              {(() => {
-                // Calculate which legal ball number marks the start of current over
+              {!overCompletePending && (() => {
+                // Show current in-progress over (don't show when over is complete and pending confirmation)
                 const currentOverStartLegalBall = Math.floor(validBalls.length / 6) * 6;
 
                 // Find all balls that belong to the current over
-                // A ball belongs to current over if it's bowled after the start of current over
                 let legalBallCount = 0;
                 const ballsInCurrentOver: typeof currentInnings.balls = [];
 
                 for (const ball of currentInnings.balls) {
-                  // Count legal balls (exclude both wide and no-ball)
-                  if (!ball.isExtra || (ball.extraType !== 'wide' && ball.extraType !== 'no-ball')) {
-                    if (legalBallCount >= currentOverStartLegalBall) {
-                      ballsInCurrentOver.push(ball);
-                    }
-                    legalBallCount++;
-                  } else {
-                    // Wide and no-ball balls don't count as legal balls but belong to the over
-                    if (legalBallCount >= currentOverStartLegalBall) {
-                      ballsInCurrentOver.push(ball);
-                    }
+                  const isLegal = !ball.isExtra || (ball.extraType !== 'wide' && ball.extraType !== 'no-ball');
+                  
+                  // Add ball to current over if we're in the target over range
+                  if (legalBallCount >= currentOverStartLegalBall && legalBallCount < currentOverStartLegalBall + 6) {
+                    ballsInCurrentOver.push(ball);
                   }
-
-                  // Stop if we've completed the current over (6 legal balls)
-                  if (legalBallCount >= currentOverStartLegalBall + 6) {
-                    break;
+                  
+                  // Count legal balls after checking
+                  if (isLegal) {
+                    legalBallCount++;
+                  }
+                  
+                  // Also add any extras that come after the 6th legal ball of the target over
+                  if (legalBallCount === currentOverStartLegalBall + 6 && !isLegal) {
+                    ballsInCurrentOver.push(ball);
                   }
                 }
 
@@ -787,9 +828,6 @@ const ScoringPage = () => {
                   </div>
                 ));
               })()}
-              {validBalls.length % 6 === 0 && validBalls.length > 0 && (
-                <div className="text-xs text-neutral-500 self-center">Over complete</div>
-              )}
             </div>
           </div>
 
@@ -799,6 +837,13 @@ const ScoringPage = () => {
               <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg text-center text-xs text-neutral-400">
                 Innings Complete - Click "Start Next Innings" to continue
               </div>
+            ) : overCompletePending ? (
+              <button
+                onClick={handleCompleteOver}
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white font-bold py-4 rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-green-500/30"
+              >
+                Complete This Over
+              </button>
             ) : !striker || !bowler ? (
               <div className="p-3 bg-neutral-900 border border-neutral-800 rounded-lg text-center text-xs text-neutral-400">
                 Select Striker and Bowler to start scoring
@@ -808,7 +853,7 @@ const ScoringPage = () => {
                 onScore={handleScore}
                 onExtra={handleExtra}
                 onWicket={handleWicket}
-                isEnabled={!!striker && !!bowler && !inningsCompletePending}
+                isEnabled={!!striker && !!bowler && !inningsCompletePending && !overCompletePending}
               />
             )}
           </div>

@@ -197,11 +197,11 @@ const HomePage = () => {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-1.5">
                         {isLive && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                            <span className="text-xs font-semibold text-red-400">LIVE</span>
+                          </>
                         )}
-                        <span className={`text-xs font-semibold px-2 py-1 rounded ${getStatusColor(match.status)}`}>
-                          {getStatusLabel(match.status)}
-                        </span>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-neutral-500">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -240,10 +240,26 @@ const HomePage = () => {
                       </div>
                     )}
 
-                    {/* Result Text */}
-                    {hasScore && (
+                    {/* YouTube Video Embed */}
+                    {isCompleted && match.youtubeEmbedId && (
+                      <div className="mb-3 rounded-lg overflow-hidden">
+                        <iframe
+                          width="100%"
+                          height="200"
+                          src={`https://www.youtube.com/embed/${match.youtubeEmbedId}`}
+                          title="Match Highlights"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full"
+                        ></iframe>
+                      </div>
+                    )}
+
+                    {/* Result Text - Only for Live matches */}
+                    {isLive && (
                       <div className="text-xs text-amber-400 font-medium mb-3">
-                        {isLive ? 'Match in progress' : isCompleted ? 'Match completed' : ''}
+                        Match in progress
                       </div>
                     )}
 
@@ -256,12 +272,8 @@ const HomePage = () => {
                         {match.venue}
                       </div>
                       {isCompleted && (
-                        <div className="flex items-center gap-1 text-xs text-amber-400">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                            <path d="M8 21h8M12 17v4M6 4h12v3a6 6 0 01-12 0V4z"></path>
-                            <path d="M6 5H3v2a3 3 0 003 3M18 5h3v2a3 3 0 01-3 3"></path>
-                          </svg>
-                          Player of the Match
+                        <div className="text-xs text-neutral-500">
+                          {match.overs} overs
                         </div>
                       )}
                     </div>
