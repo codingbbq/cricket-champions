@@ -46,6 +46,9 @@ export const BallCommentary = ({ ball, overNumber, ballInOver, playersMap }: Bal
         text = `${strikerName} caught by ${fielderName}, bowled by ${bowlerName}! WICKET!`;
       } else if (ball.wicketType === 'bowled') {
         text = `${strikerName} bowled by ${bowlerName}! WICKET!`;
+      } else if (ball.wicketType === 'run-out') {
+        const fielderName = ball.fielderId ? getPlayerName(ball.fielderId, ball.fielderName) : 'fielder';
+        text = `${strikerName} run out by ${fielderName}! WICKET!`;
       } else if (ball.wicketType === 'lbw') {
         text = `${strikerName} LBW by ${bowlerName}! WICKET!`;
       } else {

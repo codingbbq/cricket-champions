@@ -35,6 +35,11 @@ const ScoringPage = () => {
   const [completedFirstInningsData, setCompletedFirstInningsData] = useState<Innings | null>(null);
   const [activeTab, setActiveTab] = useState<'scoring' | 'commentary'>('scoring');
   const [overCompletePending, setOverCompletePending] = useState(false);
+  const [showWicketModal, setShowWicketModal] = useState(false);
+  const [wicketType, setWicketType] = useState<'bowled' | 'caught' | 'run-out' | null>(null);
+  const [selectedFielder, setSelectedFielder] = useState<Player | null>(null);
+  const [runOutBatsman, setRunOutBatsman] = useState<'striker' | 'non-striker' | null>(null);
+  const [runOutEnd, setRunOutEnd] = useState<'striker' | 'non-striker' | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -542,18 +547,96 @@ const ScoringPage = () => {
 
   const handleWicket = () => {
     if (!striker || !bowler) return;
-    // TODO: Implement a modal to select wicket type and new batsman
-    processBall({ 
-      bowlerId: bowler.id, 
-      bowlerName: bowler.name,
-      strikerId: striker.id, 
-      strikerName: striker.name,
-      runs: 0, 
-      isExtra: false, 
-      isWicket: true, 
-      wicketType: 'bowled',
-      timestamp: new Date()
-    });
+    setShowWicketModal(true);
+  };
+
+  const handleWicketConfirm = () => {
+    if (!striker || !bowler || !wicketType) return;
+
+    let wicketData: Ball;
+    let dismissedEnd: 'striker' | 'non-striker';
+
+    if (wicketType === 'bowled') {
+      // Bowled - striker is out, bowler gets credit
+      wicketData = {
+        bowlerId: bowler.id,
+        bowlerName: bowler.name,
+        strikerId: striker.id,
+        strikerName: striker.name,
+        runs: 0,
+        isExtra: false,
+        isWicket: true,
+        wicketType: 'bowled',
+        timestamp: new Date(),
+        ballNumber: 0
+      };
+      dismissedEnd = 'striker';
+    } else if (wicketType === 'caught') {
+      // Caught - striker is out, bowler and fielder get credit
+      if (!selectedFielder) {
+        addToast('Please select a fielder', 'warning');
+        return;
+      }
+      wicketData = {
+        bowlerId: bowler.id,
+        bowlerName: bowler.name,
+        strikerId: striker.id,
+        strikerName: striker.name,
+        runs: 0,
+        isExtra: false,
+        isWicket: true,
+        wicketType: 'caught',
+        fielderId: selectedFielder.id,
+        fielderName: selectedFielder.name,
+        timestamp: new Date(),
+        ballNumber: 0
+      };
+      dismissedEnd = 'striker';
+    } else if (wicketType === 'run-out') {
+      // Run out - need to know which batsman and which end
+      if (!selectedFielder || !runOutBatsman || !runOutEnd) {
+        addToast('Please complete all run out details', 'warning');
+        return;
+      }
+      
+      const outBatsman = runOutBatsman === 'striker' ? striker : nonStriker;
+      if (!outBatsman) return;
+
+      wicketData = {
+        bowlerId: bowler.id,
+        bowlerName: bowler.name,
+        strikerId: outBatsman.id,
+        strikerName: outBatsman.name,
+        runs: 0,
+        isExtra: false,
+        isWicket: true,
+        wicketType: 'run-out',
+        fielderId: selectedFielder.id,
+        fielderName: selectedFielder.name,
+        timestamp: new Date(),
+        ballNumber: 0
+      };
+      dismissedEnd = runOutEnd;
+    } else {
+      return;
+    }
+
+    // Process the ball
+    processBall(wicketData);
+
+    // Show popup to select new batsman for the dismissed end
+    if (dismissedEnd === 'striker') {
+      setShowStrikerPopup(true);
+    } else {
+      setShowNonStrikerPopup(true);
+    }
+
+    // Reset wicket modal state
+    setShowWicketModal(false);
+    setWicketType(null);
+    setSelectedFielder(null);
+    setRunOutBatsman(null);
+    setRunOutEnd(null);
   };
 
   const handleCompleteOver = () => {
@@ -961,6 +1044,181 @@ const ScoringPage = () => {
             </div>
           )}
         </div>
+
+        {/* Wicket Modal */}
+        {showWicketModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-neutral-900 rounded-2xl p-6 max-w-md w-full mx-4 space-y-4 border-2 border-red-600 shadow-2xl">
+              <div className="flex items-center gap-3">
+                <div className="text-4xl">🎯</div>
+                <div>
+                  <h3 className="text-xl font-bold text-red-400">Wicket!</h3>
+                  <p className="text-sm text-neutral-400">Select wicket type</p>
+                </div>
+              </div>
+
+              {/* Wicket Type Selection */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => setWicketType('bowled')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all border-2 ${
+                    wicketType === 'bowled'
+                      ? 'bg-red-600 text-white border-red-400'
+                      : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700'
+                  }`}
+                >
+                  <div className="font-semibold">Bowled</div>
+                  <div className="text-xs text-neutral-400">Credit to bowler</div>
+                </button>
+
+                <button
+                  onClick={() => setWicketType('caught')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all border-2 ${
+                    wicketType === 'caught'
+                      ? 'bg-red-600 text-white border-red-400'
+                      : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700'
+                  }`}
+                >
+                  <div className="font-semibold">Caught</div>
+                  <div className="text-xs text-neutral-400">Select fielder below</div>
+                </button>
+
+                <button
+                  onClick={() => setWicketType('run-out')}
+                  className={`w-full text-left px-4 py-3 rounded-lg transition-all border-2 ${
+                    wicketType === 'run-out'
+                      ? 'bg-red-600 text-white border-red-400'
+                      : 'bg-neutral-800 text-white hover:bg-neutral-700 border-neutral-700'
+                  }`}
+                >
+                  <div className="font-semibold">Run Out</div>
+                  <div className="text-xs text-neutral-400">Select batsman and fielder</div>
+                </button>
+              </div>
+
+              {/* Fielder Selection for Caught */}
+              {wicketType === 'caught' && (
+                <div className="space-y-2">
+                  <div className="text-sm font-semibold text-neutral-300">Select Fielder</div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {players.filter(p => bowlingTeam?.players.includes(p.id) && p.id !== bowler?.id).map(player => (
+                      <button
+                        key={player.id}
+                        onClick={() => setSelectedFielder(player)}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-all ${
+                          selectedFielder?.id === player.id
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-neutral-800 text-white hover:bg-neutral-700'
+                        }`}
+                      >
+                        {player.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Run Out Details */}
+              {wicketType === 'run-out' && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-neutral-300">Which batsman is out?</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setRunOutBatsman('striker')}
+                        className={`px-3 py-2 rounded text-sm transition-all ${
+                          runOutBatsman === 'striker'
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-neutral-800 text-white hover:bg-neutral-700'
+                        }`}
+                      >
+                        {striker?.name || 'Striker'}
+                      </button>
+                      <button
+                        onClick={() => setRunOutBatsman('non-striker')}
+                        className={`px-3 py-2 rounded text-sm transition-all ${
+                          runOutBatsman === 'non-striker'
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-neutral-800 text-white hover:bg-neutral-700'
+                        }`}
+                      >
+                        {nonStriker?.name || 'Non-Striker'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-neutral-300">Run out at which end?</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setRunOutEnd('striker')}
+                        className={`px-3 py-2 rounded text-sm transition-all ${
+                          runOutEnd === 'striker'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-neutral-800 text-white hover:bg-neutral-700'
+                        }`}
+                      >
+                        Striker End
+                      </button>
+                      <button
+                        onClick={() => setRunOutEnd('non-striker')}
+                        className={`px-3 py-2 rounded text-sm transition-all ${
+                          runOutEnd === 'non-striker'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-neutral-800 text-white hover:bg-neutral-700'
+                        }`}
+                      >
+                        Bowler End
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-neutral-300">Select Fielder</div>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {players.filter(p => bowlingTeam?.players.includes(p.id)).map(player => (
+                        <button
+                          key={player.id}
+                          onClick={() => setSelectedFielder(player)}
+                          className={`w-full text-left px-3 py-2 rounded text-sm transition-all ${
+                            selectedFielder?.id === player.id
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-neutral-800 text-white hover:bg-neutral-700'
+                          }`}
+                        >
+                          {player.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    setShowWicketModal(false);
+                    setWicketType(null);
+                    setSelectedFielder(null);
+                    setRunOutBatsman(null);
+                    setRunOutEnd(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleWicketConfirm}
+                  disabled={!wicketType || (wicketType === 'caught' && !selectedFielder) || (wicketType === 'run-out' && (!selectedFielder || !runOutBatsman || !runOutEnd))}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                >
+                  Confirm Wicket
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Striker Selection Popup */}
         {showStrikerPopup && (
