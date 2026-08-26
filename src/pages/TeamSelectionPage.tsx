@@ -116,6 +116,43 @@ const TeamSelectionPage = () => {
     setDraggedPlayer(null);
   };
 
+  const handleRandomAssignment = () => {
+    // Get all players
+    const allPlayerIds = allPlayers.map(p => p.id);
+    
+    // Shuffle the array using Fisher-Yates algorithm
+    const shuffled = [...allPlayerIds];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    const newAssignments: Record<string, 'A' | 'B' | 'C' | null> = {};
+    
+    // If odd number of players, put the last one in Common
+    const hasOddPlayer = shuffled.length % 2 !== 0;
+    const playersToAssign = hasOddPlayer ? shuffled.slice(0, -1) : shuffled;
+    
+    // Assign half to Team A, half to Team B
+    const halfPoint = Math.floor(playersToAssign.length / 2);
+    
+    playersToAssign.forEach((playerId, index) => {
+      if (index < halfPoint) {
+        newAssignments[playerId] = 'A';
+      } else {
+        newAssignments[playerId] = 'B';
+      }
+    });
+    
+    // If there was an odd player, assign to Common
+    if (hasOddPlayer) {
+      newAssignments[shuffled[shuffled.length - 1]] = 'C';
+    }
+    
+    setPlayerAssignments(newAssignments);
+    addToast('Teams randomly assigned!', 'success');
+  };
+
   const teamAPlayers = Object.entries(playerAssignments)
     .filter(([_, team]) => team === 'A')
     .map(([id]) => allPlayers.find(p => p.id === id))
@@ -214,7 +251,20 @@ const TeamSelectionPage = () => {
           <div className="space-y-6 animate-in fade-in">
             {/* Players Grid */}
             <div>
-              <div className="text-sm font-semibold mb-3 text-neutral-300">Available Players</div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-neutral-300">Available Players</div>
+                <button
+                  onClick={handleRandomAssignment}
+                  className="w-8 h-8 flex items-center justify-center bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors shadow-sm"
+                  title="Randomly assign teams"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                  </svg>
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {unassignedPlayers.map(player => (
                   <div
