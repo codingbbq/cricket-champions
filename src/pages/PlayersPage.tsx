@@ -9,7 +9,7 @@ import type { Player } from '@/types';
 const PlayersPage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const { userProfile } = useAuth();
+  const { userProfile, currentUser } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -23,6 +23,8 @@ const PlayersPage = () => {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [newPlayerEmail, setNewPlayerEmail] = useState('');
   const [newPlayerPassword, setNewPlayerPassword] = useState('cricket123');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [playerToDelete, setPlayerToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,8 +83,7 @@ const PlayersPage = () => {
 
     setIsAddingPlayer(true);
     try {
-      // For now, just create the player document
-      // Account creation will be handled by backend (see FIREBASE_ACCOUNT_SETUP.md)
+      // Create the player document
       const newPlayerData = {
         name: newPlayerName.trim(),
         role: newPlayerRole,
@@ -92,6 +93,8 @@ const PlayersPage = () => {
       };
 
       const docRef = await addDoc(collection(db, 'players'), newPlayerData);
+      
+      // Update local state
       const newPlayerForState: Player = {
         id: docRef.id,
         name: newPlayerName.trim(),
@@ -102,24 +105,49 @@ const PlayersPage = () => {
       };
       
       setPlayers([...players, newPlayerForState].sort((a, b) => a.name.localeCompare(b.name)));
+      
+      // Call backend to create Firebase Auth account
+      try {
+        const token = await currentUser?.getIdToken();
+        const response = await fetch('http://localhost:3001/api/create-player-account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email: newPlayerEmail.trim(),
+            password: newPlayerPassword,
+            playerId: docRef.id,
+            playerName: newPlayerName.trim(),
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          // Update local state with UID
+          setPlayers(players.map(p => 
+            p.id === docRef.id ? { ...p, uid: result.uid } : p
+          ).concat(newPlayerForState).sort((a, b) => a.name.localeCompare(b.name)));
+          
+          addToast(`${newPlayerName.trim()} added! Account created successfully.`, 'success');
+        } else {
+          addToast(result.error || 'Account created but authentication setup failed. Check backend logs.', 'warning');
+        }
+      } catch (error) {
+        console.error('Backend error:', error);
+        addToast('Player added but account creation failed. Make sure backend server is running.', 'warning');
+      }
+       
       setNewPlayerName('');
       setNewPlayerEmail('');
-      setNewPlayerPassword('cricket123');
+      setNewPlayerPassword('password');
       setNewPlayerRole('batsman');
       setShowAddForm(false);
-      
-      addToast(`${newPlayerName} added! Account creation pending - see console.`, 'success');
-      console.log('\n=== PLAYER ACCOUNT CREATION NEEDED ===');
-      console.log('Player Name:', newPlayerName.trim());
-      console.log('Email:', newPlayerEmail.trim());
-      console.log('Password:', newPlayerPassword);
-      console.log('Player ID:', docRef.id);
-      console.log('\nFollow FIREBASE_ACCOUNT_SETUP.md to implement account creation.');
-      console.log('After creating the account, update the player document with the uid field.');
-      console.log('======================================\n');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding player:", error);
-      addToast('Failed to add player', 'error');
+      addToast(error.message || 'Failed to add player', 'error');
     } finally {
       setIsAddingPlayer(false);
     }
@@ -150,20 +178,27 @@ const PlayersPage = () => {
     }
   };
 
-  const handleDeletePlayer = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this player?')) return;
+  const handleDeleteClick = (id: string, name: string) => {
+    setPlayerToDelete({ id, name });
+    setShowDeleteModal(true);
+  };
 
-    setIsDeletingId(id);
+  const handleConfirmDelete = async () => {
+    if (!playerToDelete) return;
+
+    setIsDeletingId(playerToDelete.id);
+    setShowDeleteModal(false);
+    
     try {
-      await deleteDoc(doc(db, 'players', id));
-      const deletedPlayer = players.find(p => p.id === id);
-      setPlayers(players.filter(p => p.id !== id));
-      addToast(`${deletedPlayer?.name} deleted successfully!`, 'success');
+      await deleteDoc(doc(db, 'players', playerToDelete.id));
+      setPlayers(players.filter(p => p.id !== playerToDelete.id));
+      addToast(`${playerToDelete.name} deleted successfully!`, 'success');
     } catch (error) {
       console.error("Error deleting player:", error);
       addToast('Failed to delete player', 'error');
     } finally {
       setIsDeletingId(null);
+      setPlayerToDelete(null);
     }
   };
 
@@ -341,7 +376,7 @@ const PlayersPage = () => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeletePlayer(player.id);
+                            handleDeleteClick(player.id, player.name);
                           }}
                           disabled={isDeletingId === player.id}
                           className="flex-1 px-3 py-2 text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors disabled:opacity-50"
@@ -423,6 +458,38 @@ const PlayersPage = () => {
               </button>
             </div>
           )}
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && playerToDelete && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-neutral-900 rounded-xl p-6 max-w-sm mx-4 space-y-4 border border-neutral-800">
+              <h3 className="text-lg font-bold text-white">Delete Player</h3>
+              <p className="text-neutral-400">
+                Are you sure you want to delete <strong className="text-white">{playerToDelete.name}</strong>?
+              </p>
+              <p className="text-neutral-500 text-sm">
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setPlayerToDelete(null);
+                  }}
+                  className="flex-1 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

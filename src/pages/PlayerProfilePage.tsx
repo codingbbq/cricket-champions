@@ -79,84 +79,136 @@ const PlayerProfilePage = () => {
         const formRuns: number[] = [];
         const recentMatches: Array<{ opponent: string; date: string; line: string; timestamp: any }> = [];
         
-        matchesSnap.docs.forEach((matchDoc) => {
+        // Fetch all innings data and teams for all matches in parallel
+        const inningsPromises = matchesSnap.docs.map(async (matchDoc) => {
           const matchData = matchDoc.data() as Match;
-          
-          // Get innings data
           const inningsQuery = collection(db, `matches/${matchDoc.id}/innings`);
-          getDocs(inningsQuery).then((inningsSnap) => {
-            inningsSnap.docs.forEach((inningsDoc) => {
-              const inningsData = inningsDoc.data();
-              const balls = inningsData.balls || [];
-              
-              let matchRuns = 0;
-              let matchBalls = 0;
-              let matchWickets = 0;
-              let matchRunsConceded = 0;
-              let matchBallsBowled = 0;
-              
-              balls.forEach((ball: Ball) => {
-                // Batting stats
-                if (ball.strikerId === playerId) {
-                  if (!ball.isExtra || ball.extraType !== 'wide') {
-                    matchBalls++;
-                    totalBalls++;
-                  }
-                  matchRuns += ball.runs;
-                  totalRuns += ball.runs;
-                  
-                  if (ball.runs === 4) fours++;
-                  if (ball.runs === 6) sixes++;
+          const teamsQuery = collection(db, `matches/${matchDoc.id}/teams`);
+          
+          const [inningsSnap, teamsSnap] = await Promise.all([
+            getDocs(inningsQuery),
+            getDocs(teamsQuery)
+          ]);
+          
+          // Get team names
+          const teams: Record<string, string> = {};
+          teamsSnap.docs.forEach(teamDoc => {
+            teams[teamDoc.id] = teamDoc.data().name || teamDoc.id;
+          });
+          
+          return { matchDoc, matchData, inningsSnap, teams };
+        });
+        
+        const allMatchesData = await Promise.all(inningsPromises);
+        
+        // Process all innings data and consolidate by match
+        const matchStatsMap = new Map<string, { runs: number; balls: number; wickets: number; runsConceded: number; playerTeamId: string | null }>();
+        
+        allMatchesData.forEach(({ matchDoc, matchData, inningsSnap, teams }) => {
+          // First pass: collect player's team and stats across all innings
+          let playerTeamId: string | null = null;
+          let matchRuns = 0;
+          let matchBalls = 0;
+          let matchWickets = 0;
+          let matchRunsConceded = 0;
+          let matchBallsBowled = 0;
+          
+          inningsSnap.docs.forEach((inningsDoc) => {
+            const inningsData = inningsDoc.data();
+            const balls = inningsData.balls || [];
+            
+            balls.forEach((ball: Ball) => {
+              // Batting stats
+              if (ball.strikerId === playerId) {
+                if (!ball.isExtra || ball.extraType !== 'wide') {
+                  matchBalls++;
+                  totalBalls++;
                 }
+                matchRuns += ball.runs;
+                totalRuns += ball.runs;
                 
-                // Bowling stats
-                if (ball.bowlerId === playerId) {
-                  if (!ball.isExtra || ball.extraType !== 'wide') {
-                    matchBallsBowled++;
-                    totalBallsBowled++;
-                  }
-                  matchRunsConceded += ball.runs;
-                  if (ball.isExtra && (ball.extraType === 'wide' || ball.extraType === 'no-ball')) {
-                    matchRunsConceded += 1;
-                  }
-                  totalRunsConceded += matchRunsConceded;
-                  
-                  if (ball.isWicket) {
-                    matchWickets++;
-                    wickets++;
-                  }
-                }
+                if (ball.runs === 4) fours++;
+                if (ball.runs === 6) sixes++;
                 
-                // Fielding stats
-                if (ball.fielderId === playerId) {
-                  if (ball.wicketType === 'caught') catches++;
-                  if (ball.wicketType === 'run-out') runOuts++;
+                // Determine player's team (they bat for this team)
+                if (!playerTeamId) {
+                  playerTeamId = inningsData.teamId;
                 }
-              });
-              
-              if (matchRuns > highScore) highScore = matchRuns;
-              if (matchWickets > bestWickets || (matchWickets === bestWickets && matchRunsConceded < bestRuns)) {
-                bestWickets = matchWickets;
-                bestRuns = matchRunsConceded;
               }
               
-              // Track form (last 5 matches)
-              if (matchRuns > 0 || matchBalls > 0) {
-                formRuns.push(matchRuns);
+              // Bowling stats
+              if (ball.bowlerId === playerId) {
+                if (!ball.isExtra || ball.extraType !== 'wide') {
+                  matchBallsBowled++;
+                  totalBallsBowled++;
+                }
+                matchRunsConceded += ball.runs;
+                if (ball.isExtra && (ball.extraType === 'wide' || ball.extraType === 'no-ball')) {
+                  matchRunsConceded += 1;
+                }
+                totalRunsConceded += matchRunsConceded;
+                
+                if (ball.isWicket) {
+                  matchWickets++;
+                  wickets++;
+                }
               }
               
-              // Track recent matches
-              const opponentTeam = inningsData.teamId === matchData.teamA ? matchData.teams?.teamB?.name : matchData.teams?.teamA?.name;
-              const matchLine = matchWickets > 0 ? `${matchWickets}/${matchRunsConceded}` : `${matchRuns}(${matchBalls})`;
-              
-              recentMatches.push({
-                opponent: opponentTeam || 'Unknown',
-                date: matchData.date?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'Unknown',
-                line: matchLine,
-                timestamp: matchData.date
-              });
+              // Fielding stats
+              if (ball.fielderId === playerId) {
+                if (ball.wicketType === 'caught') catches++;
+                if (ball.wicketType === 'run-out') runOuts++;
+              }
             });
           });
+          
+          if (matchRuns > highScore) highScore = matchRuns;
+          if (matchWickets > bestWickets || (matchWickets === bestWickets && matchRunsConceded < bestRuns)) {
+            bestWickets = matchWickets;
+            bestRuns = matchRunsConceded;
+          }
+          
+          // Track form (last 5 matches)
+          if (matchRuns > 0 || matchBalls > 0) {
+            formRuns.push(matchRuns);
+          }
+          
+          // Store match stats for recent matches (consolidated per match)
+          if (matchRuns > 0 || matchBalls > 0 || matchWickets > 0) {
+            matchStatsMap.set(matchDoc.id, {
+              runs: matchRuns,
+              balls: matchBalls,
+              wickets: matchWickets,
+              runsConceded: matchRunsConceded,
+              playerTeamId
+            });
+            
+            // Determine opponent team
+            let opponentTeam = 'Unknown';
+            if (playerTeamId) {
+              // Find the other team
+              const opponentTeamId = Object.keys(teams).find(teamId => teamId !== playerTeamId);
+              if (opponentTeamId) {
+                opponentTeam = teams[opponentTeamId];
+              }
+            }
+            
+            // Create match line showing both batting and bowling if applicable
+            let matchLine = '';
+            if (matchRuns > 0 || matchBalls > 0) {
+              matchLine = `${matchRuns}(${matchBalls})`;
+            }
+            if (matchWickets > 0) {
+              matchLine = matchLine ? `${matchLine}, ${matchWickets}/${matchRunsConceded}` : `${matchWickets}/${matchRunsConceded}`;
+            }
+            
+            recentMatches.push({
+              opponent: opponentTeam,
+              date: matchData.date?.toDate?.()?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) || 'Unknown',
+              line: matchLine,
+              timestamp: matchData.date
+            });
+          }
         });
         
         // Calculate stats
