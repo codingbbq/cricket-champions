@@ -31,9 +31,9 @@ function App() {
           <Route path="/matches/:matchId/toss" element={<ProtectedRoute requiredRole="user"><TossPage /></ProtectedRoute>} />
           <Route path="/scoring/:matchId" element={<ProtectedRoute requiredRole="user"><ScoringPage /></ProtectedRoute>} />
 
-          {/* Super Admin Routes */}
-          <Route path="/players" element={<ProtectedRoute requiredRole="super-admin"><MainLayout><PlayersPage /></MainLayout></ProtectedRoute>} />
-          <Route path="/statistics" element={<ProtectedRoute requiredRole="super-admin"><StatisticsPage /></ProtectedRoute>} />
+          {/* Public Routes - Viewing Only */}
+          <Route path="/players" element={<MainLayout><PlayersPage /></MainLayout>} />
+          <Route path="/statistics" element={<MainLayout><StatisticsPage /></MainLayout>} />
         </Routes>
       </main>
     </ToastProvider>

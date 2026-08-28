@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 import type { Player } from '@/types';
 
 const PlayersPage = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { userProfile } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -172,6 +174,7 @@ const PlayersPage = () => {
 
   const stats = getStatistics();
   const filteredPlayers = getFilteredPlayers();
+  const isSuperAdmin = userProfile?.role === 'super-admin';
 
   return (
     <div className="w-full flex flex-col">
@@ -291,24 +294,26 @@ const PlayersPage = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingPlayer({ ...player });
-                          setIsModalOpen(true);
-                        }}
-                        className="flex-1 px-3 py-2 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 rounded transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeletePlayer(player.id)}
-                        disabled={isDeletingId === player.id}
-                        className="flex-1 px-3 py-2 text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors disabled:opacity-50"
-                      >
-                        {isDeletingId === player.id ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </div>
+                    {isSuperAdmin && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingPlayer({ ...player });
+                            setIsModalOpen(true);
+                          }}
+                          className="flex-1 px-3 py-2 text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 rounded transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeletePlayer(player.id)}
+                          disabled={isDeletingId === player.id}
+                          className="flex-1 px-3 py-2 text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors disabled:opacity-50"
+                        >
+                          {isDeletingId === player.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -316,16 +321,17 @@ const PlayersPage = () => {
           )}
         </div>
 
-        {/* Add Player Form */}
-        <div className="fixed bottom-16 left-0 right-0 flex max-w-md mx-auto px-4 py-4 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 z-30">
-          {!showAddForm ? (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
-            >
-              + Add Player
-            </button>
-          ) : (
+        {/* Add Player Form - Only for Super Admin */}
+        {isSuperAdmin && (
+          <div className="fixed bottom-16 left-0 right-0 flex max-w-md mx-auto px-4 py-4 bg-neutral-950/95 backdrop-blur-lg border-t border-neutral-800 z-30">
+            {!showAddForm ? (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
+              >
+                + Add Player
+              </button>
+            ) : (
             <div className="w-full space-y-2">
               <div className="flex gap-2">
                 <input
@@ -368,7 +374,8 @@ const PlayersPage = () => {
               </button>
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Edit Modal */}
         {isModalOpen && editingPlayer && (

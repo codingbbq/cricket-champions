@@ -6,6 +6,22 @@ interface ProtectedRouteProps {
   requiredRole?: UserRole | UserRole[];
 }
 
+// Helper function to check role hierarchy
+const hasPermission = (userRole: UserRole, requiredRole: UserRole | UserRole[]): boolean => {
+  // Define role hierarchy: super-admin > user > public
+  const roleHierarchy: Record<UserRole, number> = {
+    'public': 0,
+    'user': 1,
+    'super-admin': 2
+  };
+
+  const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+  const userLevel = roleHierarchy[userRole];
+  
+  // Check if user's role level meets or exceeds any required role level
+  return requiredRoles.some(role => userLevel >= roleHierarchy[role]);
+};
+
 const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { userProfile, loading, isAuthenticated } = useAuth();
 
@@ -28,9 +44,8 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
     return children;
   }
 
-  // Check if user has required role
-  const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-  const hasRequiredRole = userProfile && requiredRoles.includes(userProfile.role);
+  // Check if user has required role using hierarchy
+  const hasRequiredRole = userProfile && hasPermission(userProfile.role, requiredRole);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
