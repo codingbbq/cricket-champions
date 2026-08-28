@@ -21,6 +21,8 @@ const PlayersPage = () => {
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [newPlayerEmail, setNewPlayerEmail] = useState('');
+  const [newPlayerPassword, setNewPlayerPassword] = useState('cricket123');
 
   useEffect(() => {
     let isMounted = true;
@@ -67,27 +69,54 @@ const PlayersPage = () => {
       return;
     }
 
-    setIsAddingPlayer(true);
-    const newPlayerData = {
-      name: newPlayerName.trim(),
-      role: newPlayerRole,
-      active: true,
-      createdAt: serverTimestamp(),
-    };
+    if (!isSuperAdmin) {
+      addToast('Only super-admins can add players', 'error');
+      return;
+    }
 
+    if (!newPlayerEmail.trim() || !newPlayerPassword.trim()) {
+      addToast('Email and password are required', 'warning');
+      return;
+    }
+
+    setIsAddingPlayer(true);
     try {
+      // For now, just create the player document
+      // Account creation will be handled by backend (see FIREBASE_ACCOUNT_SETUP.md)
+      const newPlayerData = {
+        name: newPlayerName.trim(),
+        role: newPlayerRole,
+        email: newPlayerEmail.trim(),
+        active: true,
+        createdAt: serverTimestamp(),
+      };
+
       const docRef = await addDoc(collection(db, 'players'), newPlayerData);
       const newPlayerForState: Player = {
         id: docRef.id,
         name: newPlayerName.trim(),
         role: newPlayerRole,
+        email: newPlayerEmail.trim(),
         active: true,
         createdAt: new Date(),
       };
+      
       setPlayers([...players, newPlayerForState].sort((a, b) => a.name.localeCompare(b.name)));
       setNewPlayerName('');
+      setNewPlayerEmail('');
+      setNewPlayerPassword('cricket123');
       setNewPlayerRole('batsman');
-      addToast(`${newPlayerName} added successfully!`, 'success');
+      setShowAddForm(false);
+      
+      addToast(`${newPlayerName} added! Account creation pending - see console.`, 'success');
+      console.log('\n=== PLAYER ACCOUNT CREATION NEEDED ===');
+      console.log('Player Name:', newPlayerName.trim());
+      console.log('Email:', newPlayerEmail.trim());
+      console.log('Password:', newPlayerPassword);
+      console.log('Player ID:', docRef.id);
+      console.log('\nFollow FIREBASE_ACCOUNT_SETUP.md to implement account creation.');
+      console.log('After creating the account, update the player document with the uid field.');
+      console.log('======================================\n');
     } catch (error) {
       console.error("Error adding player:", error);
       addToast('Failed to add player', 'error');
@@ -278,7 +307,10 @@ const PlayersPage = () => {
                     className="bg-neutral-900 rounded-lg p-4 animate-in fade-in"
                     style={{ animationDelay: `${Math.min(index, 6) * 50}ms` }}
                   >
-                    <div className="flex items-center gap-3 mb-3">
+                    <div 
+                      className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => navigate(`/players/${player.id}`)}
+                    >
                       <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center font-semibold text-sm border border-neutral-700">
                         {getPlayerInitials(player.name)}
                       </div>
@@ -297,7 +329,8 @@ const PlayersPage = () => {
                     {isSuperAdmin && (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setEditingPlayer({ ...player });
                             setIsModalOpen(true);
                           }}
@@ -306,7 +339,10 @@ const PlayersPage = () => {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDeletePlayer(player.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePlayer(player.id);
+                          }}
                           disabled={isDeletingId === player.id}
                           className="flex-1 px-3 py-2 text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors disabled:opacity-50"
                         >
@@ -333,16 +369,27 @@ const PlayersPage = () => {
               </button>
             ) : (
             <div className="w-full space-y-2">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newPlayerName}
-                  onChange={(e) => setNewPlayerName(e.target.value)}
-                  placeholder="Player name"
-                  className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddPlayer()}
-                />
-              </div>
+              <input
+                type="text"
+                value={newPlayerName}
+                onChange={(e) => setNewPlayerName(e.target.value)}
+                placeholder="Player name"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+              />
+              <input
+                type="email"
+                value={newPlayerEmail}
+                onChange={(e) => setNewPlayerEmail(e.target.value)}
+                placeholder="Email address"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+              />
+              <input
+                type="text"
+                value={newPlayerPassword}
+                onChange={(e) => setNewPlayerPassword(e.target.value)}
+                placeholder="Default password"
+                className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-amber-500"
+              />
               <div className="flex gap-2">
                 <select
                   value={newPlayerRole}
@@ -366,6 +413,8 @@ const PlayersPage = () => {
                 onClick={() => {
                   setShowAddForm(false);
                   setNewPlayerName('');
+                  setNewPlayerEmail('');
+                  setNewPlayerPassword('cricket123');
                   setNewPlayerRole('batsman');
                 }}
                 className="w-full px-3 py-2 text-xs text-neutral-400 hover:text-neutral-300"

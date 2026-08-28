@@ -5,6 +5,8 @@ export interface Player {
   photoUrl?: string;
   active: boolean;
   createdAt: any; // Using 'any' for now, will be a Firestore Timestamp
+  uid?: string; // Firebase Auth UID - links player to user account
+  email?: string; // Email address for the player's account
 }
 
 export interface Team {
