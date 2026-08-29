@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ArrowUpDown } from 'lucide-react';
-import Navigation from '@/components/common/Navigation';
 import { Card, CardContent } from '@/components/ui/Card';
 import type { Player, Innings } from '@/types';
 
@@ -16,7 +15,7 @@ interface PlayerStats {
   timesOut: number;
 }
 
-const StatisticsPage = () => {
+const LeaderboardPage = () => {
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{ key: keyof PlayerStats | 'avg' | 'sr'; direction: 'ascending' | 'descending' } | null>(null);
@@ -109,30 +108,31 @@ const StatisticsPage = () => {
 
   if (loading) {
     return (
-      <>
-        <Navigation />
-        <div className="container-responsive py-10">
+      <div className="w-full">
+        <div className="px-4 md:px-6 py-6 border-b border-neutral-800">
+          <div className="text-2xl font-bold">Leaderboard</div>
+        </div>
+        <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <div className="animate-spin text-4xl mb-4">⏳</div>
-            <p className="text-gray-600">Loading statistics...</p>
+            <p className="text-neutral-500">Loading leaderboard...</p>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <Navigation />
-      <div className="container-responsive py-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Player Statistics</h1>
-          <p className="text-gray-600">View player performance metrics and rankings</p>
-        </div>
+    <div className="w-full">
+      <div className="px-4 md:px-6 py-6 border-b border-neutral-800">
+        <div className="text-2xl font-bold">Leaderboard</div>
+        <div className="text-sm text-neutral-500 mt-1">Top performing players</div>
+      </div>
+      <div className="px-4 md:px-6 py-6">
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="min-w-full bg-white divide-y divide-gray-200">
+              <table className="min-w-full bg-dark-900 divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -155,7 +155,7 @@ const StatisticsPage = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-dark-900 divide-y divide-gray-200">
                   {sortedPlayerStats.map(player => (
                     <tr key={player.id}>
                       <td className="px-6 py-4 whitespace-nowrap">{player.name}</td>
@@ -172,8 +172,8 @@ const StatisticsPage = () => {
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 };
 
-export default StatisticsPage;
+export default LeaderboardPage;

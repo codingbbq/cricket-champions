@@ -25,11 +25,12 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-950">
-      <div className="w-full max-w-sm p-8 space-y-6 bg-neutral-900 rounded-xl border border-neutral-800 shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-950 px-4">
+      <div className="w-full max-w-md p-8 space-y-6 bg-neutral-900 rounded-xl border border-neutral-800 shadow-2xl">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-white">Admin Login</h1>
-          <p className="text-neutral-400">Enter your credentials to access Cricket Champions.</p>
+          <div className="text-5xl mb-4">🏏</div>
+          <h1 className="text-3xl font-bold text-white">Cricket Champions</h1>
+          <p className="text-neutral-400">Sign in to continue</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

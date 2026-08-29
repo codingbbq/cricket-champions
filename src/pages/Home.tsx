@@ -145,21 +145,27 @@ const HomePage = () => {
 
   return (
     <div className="w-full flex flex-col">
-      {/* Header */}
-        <div className="sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xl font-semibold">Cricket Champions</div>
-              <div className="text-xs text-neutral-500 mt-0.5">{getGreeting()}</div>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-sm font-semibold border border-neutral-700">
-              🏏
-            </div>
+      {/* Header - Mobile only */}
+      <div className="md:hidden sticky top-0 z-20 px-4 py-4 bg-neutral-950/88 backdrop-blur-lg border-b border-neutral-800">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xl font-semibold">Cricket Champions</div>
+            <div className="text-xs text-neutral-500 mt-0.5">{getGreeting()}</div>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-sm font-semibold border border-neutral-700">
+            🏏
           </div>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 space-y-4">
+      {/* Desktop Header */}
+      <div className="hidden md:block px-6 py-6 border-b border-neutral-800">
+        <div className="text-2xl font-bold">Matches</div>
+        <div className="text-sm text-neutral-500 mt-1">{getGreeting()}</div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 md:py-6 pb-24 md:pb-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-neutral-500">Loading matches...</div>
@@ -169,7 +175,8 @@ const HomePage = () => {
               <div className="text-neutral-500">No matches yet</div>
             </div>
           ) : (
-            matches.map((match, index) => {
+            <div className="md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-6 space-y-4 md:space-y-0">
+            {matches.map((match, index) => {
               const isExpanded = expandedMatches[match.id];
               const isLive = match.status === 'live';
               const isCompleted = match.status === 'completed';
@@ -394,16 +401,17 @@ const HomePage = () => {
                   </div>
                 </div>
               );
-            })
+            })}
+            </div>
           )}
         </div>
 
         {/* Snackbar */}
-        {snackbar && (
-          <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-neutral-900 text-white text-xs px-4 py-2 rounded-full shadow-lg z-30 animate-in fade-in">
-            {snackbar}
-          </div>
-        )}
+      {snackbar && (
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 transform -translate-x-1/2 bg-neutral-900 text-white text-xs px-4 py-2 rounded-full shadow-lg z-30 animate-in fade-in">
+          {snackbar}
+        </div>
+      )}
     </div>
   );
 };

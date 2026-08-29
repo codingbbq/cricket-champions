@@ -8,7 +8,7 @@ import TeamSelectionPage from './pages/TeamSelectionPage';
 import TossPage from './pages/TossPage';
 import ScoringPage from './pages/ScoringPage';
 import MatchSummaryPage from './pages/MatchSummaryPage';
-import StatisticsPage from './pages/StatisticsPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import PlayerProfilePage from './pages/PlayerProfilePage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import MainLayout from './components/common/MainLayout';
@@ -35,7 +35,7 @@ function App() {
           {/* Public Routes - Viewing Only */}
           <Route path="/players" element={<MainLayout><PlayersPage /></MainLayout>} />
           <Route path="/players/:playerId" element={<MainLayout><PlayerProfilePage /></MainLayout>} />
-          <Route path="/statistics" element={<MainLayout><StatisticsPage /></MainLayout>} />
+          <Route path="/leaderboard" element={<MainLayout><LeaderboardPage /></MainLayout>} />
         </Routes>
       </main>
     </ToastProvider>
