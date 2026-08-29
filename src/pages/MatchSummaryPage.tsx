@@ -4,6 +4,7 @@ import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { BallCommentary } from '@/components/commentary/BallCommentary';
+import CommentsSection from '@/components/CommentsSection';
 import type { Match, Team, Player, Innings } from '@/types';
 
 const MatchSummaryPage = () => {
@@ -489,6 +490,9 @@ const MatchSummaryPage = () => {
                   )}
                 </div>
               </div>
+
+              {/* Comments Section */}
+              {matchId && <CommentsSection matchId={matchId} />}
             </>
           )}
         </div>

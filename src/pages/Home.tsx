@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
+import CommentsSection from '@/components/CommentsSection';
 import type { Match } from '@/types';
 
 const HomePage = () => {
@@ -359,17 +360,23 @@ const HomePage = () => {
                           <div className="text-xs text-neutral-600">Match data not available</div>
                         )}
                       </div>
-                      <div className="text-xs text-neutral-600">
+                      <div className="text-xs text-neutral-600 mb-4">
                         Overs: {match.overs} · Format: {match.overs} overs
                       </div>
                       {isCompleted && (
                         <button
                           onClick={() => navigate(`/match/${match.id}`)}
-                          className="inline-block mt-3 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                          className="inline-block mb-4 text-xs text-amber-400 hover:text-amber-300 transition-colors"
                         >
                           View full scorecard →
                         </button>
                       )}
+
+                      {/* Comments Section */}
+                      <CommentsSection 
+                        matchId={match.id} 
+                        onCommentAdded={() => showSnackbar('Comment added!')}
+                      />
                     </div>
                   )}
 
