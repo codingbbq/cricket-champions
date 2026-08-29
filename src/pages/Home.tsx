@@ -129,23 +129,15 @@ const HomePage = () => {
           <div>
             <div className="text-6xl mb-4">🏏</div>
             <h1 className="text-3xl font-bold mb-2">Cricket Champions</h1>
-            <p className="text-neutral-400">Manage your cricket matches and players</p>
+            <p className="text-neutral-400">Sign in with your account to continue</p>
           </div>
           
-          <div className="space-y-3">
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => navigate('/signup')}
-              className="w-full px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-lg transition-colors border border-neutral-700"
-            >
-              Create Account
-            </button>
-          </div>
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full px-6 py-3 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors"
+          >
+            Sign In
+          </button>
         </div>
       </div>
     );
